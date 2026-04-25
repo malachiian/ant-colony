@@ -1363,6 +1363,7 @@ LOOP</textarea>
     }
 
     function queenStatusLabel(team) {
+      if (queenHpForTeam(team) <= 0) return 'DEAD';
       return isQueenUndefended(team) ? 'Undefended' : 'Defended';
     }
 
@@ -1567,7 +1568,7 @@ LOOP</textarea>
         defendersNear,
         adjacentAttackers: attackers.length,
         attackersByTeam: countByTeam(attackers),
-        queenStatus: defendersNear > 0 ? 'Defended' : 'Undefended',
+        queenStatus: queenStatusLabel(team),
       };
       metrics.queenDamageEvents.push(event);
       if (hpAfter <= 0 && !metrics.queenDeath) {

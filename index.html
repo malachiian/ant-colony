@@ -416,7 +416,7 @@
         <button id="resetBtn" class="secondary">Reset</button>
         <label>
           Speed <span id="speedLabel">10x</span>
-          <input id="speedSlider" type="range" min="1" max="10" value="10">
+          <input id="speedSlider" type="range" min="1" max="100" value="10">
         </label>
       </div>
     </header>
@@ -932,7 +932,14 @@ LOOP</textarea>
     function run() {
       if (!compileBrains()) return;
       stop();
-      timer = setInterval(step, Math.max(20, TICK_MS / Number(speedSlider.value)));
+      const speed = Number(speedSlider.value);
+      const interval = Math.max(20, TICK_MS / speed);
+      const stepsPerInterval = Math.max(1, Math.round(speed * interval / TICK_MS));
+      timer = setInterval(() => {
+        for (let i = 0; i < stepsPerInterval; i += 1) {
+          if (!step(i === stepsPerInterval - 1)) break;
+        }
+      }, interval);
     }
 
     function stop() {
@@ -940,12 +947,14 @@ LOOP</textarea>
       timer = null;
     }
 
-    function step() {
+    function step(render = true) {
       if (state.winner) {
         stop();
-        draw();
-        updateStats();
-        return;
+        if (render) {
+          draw();
+          updateStats();
+        }
+        return false;
       }
       state.tick += 1;
       decayFoodHereMarks();
@@ -967,9 +976,11 @@ LOOP</textarea>
       emergencyBirthForAntlessQueens();
       if (checkWinner()) {
         stop();
-        draw();
-        updateStats();
-        return;
+        if (render) {
+          draw();
+          updateStats();
+        }
+        return false;
       }
       advanceQueensAfterFoodGone();
 
@@ -977,8 +988,11 @@ LOOP</textarea>
         maybeDeliver(ant);
       }
 
-      draw();
-      updateStats();
+      if (render) {
+        draw();
+        updateStats();
+      }
+      return true;
     }
 
     function applyAntMoves(ants, program) {

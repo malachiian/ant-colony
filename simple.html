@@ -1,0 +1,2217 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ant Colony Forage</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #10130f;
+      --panel: #1b2119;
+      --panel-soft: #252d22;
+      --line: #46513d;
+      --text: #f0ead9;
+      --muted: #b6ad98;
+      --green: #77d66f;
+      --gold: #e2ba5d;
+      --ant: #d34843;
+      --shadow: rgba(0, 0, 0, 0.35);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(circle at 18% 12%, rgba(119, 214, 111, 0.11), transparent 24rem),
+        linear-gradient(135deg, #080b08 0%, var(--bg) 48%, #171c13 100%);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    main {
+      width: min(1120px, calc(100% - 28px));
+      margin: 0 auto;
+      padding: 24px 0 34px;
+    }
+
+    header {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 16px;
+      align-items: end;
+      margin-bottom: 14px;
+    }
+
+    h1 {
+      margin: 0;
+      font: 700 clamp(36px, 6vw, 72px)/0.95 Georgia, "Times New Roman", serif;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      margin: 8px 0 0;
+      max-width: 680px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .controls, .arena, .stat, .notes, .brain-panel, .auto-panel, .diagnostics-panel, .rules-panel {
+      background: rgba(27, 33, 25, 0.95);
+      border: 2px solid var(--line);
+      box-shadow: 6px 6px 0 var(--shadow);
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      padding: 12px;
+    }
+
+    button {
+      border: 2px solid var(--gold);
+      background: var(--gold);
+      color: #15120a;
+      padding: 10px 13px;
+      font-weight: 850;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      box-shadow: 3px 3px 0 var(--shadow);
+    }
+
+    button.secondary {
+      background: var(--panel-soft);
+      color: var(--text);
+      border-color: var(--line);
+    }
+
+    label {
+      display: grid;
+      gap: 5px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    input[type="range"] {
+      width: 170px;
+      accent-color: var(--gold);
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1fr 240px;
+      gap: 14px;
+      align-items: start;
+    }
+
+    .arena {
+      padding: 12px;
+    }
+
+    canvas {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      display: block;
+      background: #111810;
+      border: 3px solid #070a07;
+    }
+
+    .stats {
+      display: grid;
+      gap: 10px;
+    }
+
+    .stat {
+      padding: 12px;
+    }
+
+    .stat span {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 850;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .stat strong {
+      display: block;
+      margin-top: 4px;
+      font-size: 24px;
+    }
+
+    .notes {
+      margin-top: 14px;
+      padding: 14px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .notes strong {
+      color: var(--text);
+    }
+
+    .brain-panel, .auto-panel, .diagnostics-panel, .rules-panel {
+      margin-top: 14px;
+      padding: 14px;
+    }
+
+    .auto-list {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .panel-title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid rgba(240, 234, 217, 0.12);
+    }
+
+    .panel-title h2 {
+      margin: 0;
+      font: 700 22px/1 Georgia, "Times New Roman", serif;
+    }
+
+    .editor-wrap {
+      display: grid;
+      grid-template-columns: 46px 1fr;
+      border: 2px solid var(--line);
+      background: #0b0f0b;
+      min-height: 180px;
+    }
+
+    .brain-editor-secondary {
+      margin-top: 10px;
+    }
+
+    .line-numbers {
+      overflow: hidden;
+      padding: 12px 8px;
+      border-right: 2px solid rgba(240, 234, 217, 0.12);
+      color: var(--muted);
+      background: #111810;
+      font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      text-align: right;
+      user-select: none;
+      white-space: pre;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 180px;
+      resize: vertical;
+      border: 0;
+      background: transparent;
+      color: var(--text);
+      padding: 12px;
+      font: 13px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      tab-size: 2;
+    }
+
+    textarea:focus {
+      outline: 3px solid rgba(226, 186, 93, 0.55);
+    }
+
+    .brain-status {
+      min-height: 34px;
+      margin-top: 8px;
+      color: var(--green);
+      font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      white-space: pre-wrap;
+    }
+
+    .brain-status.error {
+      color: #ff8a7d;
+    }
+
+    .command-reference {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .command {
+      background: var(--panel-soft);
+      border: 2px solid rgba(240, 234, 217, 0.12);
+      padding: 10px;
+      min-width: 0;
+      color: var(--muted);
+      line-height: 1.35;
+    }
+
+    .command code {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--text);
+      font-weight: 900;
+      white-space: normal;
+    }
+
+    .diagnostics-grid, .rules-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .diagnostic, .rule-stat {
+      min-width: 0;
+      padding: 10px;
+      background: var(--panel-soft);
+      border: 2px solid rgba(240, 234, 217, 0.12);
+    }
+
+    .diagnostic span, .rule-stat span {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 850;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .diagnostic strong, .rule-stat strong {
+      display: block;
+      margin-top: 4px;
+      font-size: 19px;
+    }
+
+    @media (max-width: 820px) {
+      header, .layout, .command-reference, .auto-list, .diagnostics-grid, .rules-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .controls {
+        justify-content: stretch;
+      }
+
+      button {
+        flex: 1 1 130px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <h1>Ant Colony Forage</h1>
+        <p class="subtitle">A stripped-down forage sim with matched red, blue, and green colonies, food pheromones, hatching, and queen defense. Edit the brains to test how ants explore, find food, fight, and carry food back home.</p>
+      </div>
+      <div class="controls">
+        <button id="runBtn">Run</button>
+        <button id="pauseBtn" class="secondary">Pause</button>
+        <button id="resetBtn" class="secondary">Reset</button>
+        <label>
+          Speed <span id="speedLabel">10x</span>
+          <input id="speedSlider" type="range" min="1" max="10" value="10">
+        </label>
+      </div>
+    </header>
+
+    <section class="layout">
+      <div class="arena">
+        <canvas id="board" width="720" height="720" aria-label="Ant colony forage simulation"></canvas>
+      </div>
+      <aside class="stats">
+        <div class="stat"><span>Tick</span><strong id="tickCount">0</strong></div>
+        <div class="stat"><span>Red Food</span><strong id="redFoodDelivered">0</strong></div>
+        <div class="stat"><span>Blue Food</span><strong id="blueFoodDelivered">0</strong></div>
+        <div class="stat"><span>Green Food</span><strong id="greenFoodDelivered">0</strong></div>
+        <div class="stat"><span>Red Ants</span><strong id="redAntCount">6</strong></div>
+        <div class="stat"><span>Blue Ants</span><strong id="blueAntCount">6</strong></div>
+        <div class="stat"><span>Green Ants</span><strong id="greenAntCount">6</strong></div>
+        <div class="stat"><span>Food Left</span><strong id="foodLeft">0</strong></div>
+        <div class="stat"><span>Red Carrying</span><strong id="redCarryingCount">0</strong></div>
+        <div class="stat"><span>Blue Carrying</span><strong id="blueCarryingCount">0</strong></div>
+        <div class="stat"><span>Green Carrying</span><strong id="greenCarryingCount">0</strong></div>
+        <div class="stat"><span>Red Queen HP</span><strong id="redQueenHp">40</strong></div>
+        <div class="stat"><span>Blue Queen HP</span><strong id="blueQueenHp">40</strong></div>
+        <div class="stat"><span>Green Queen HP</span><strong id="greenQueenHp">40</strong></div>
+        <div class="stat"><span>Red Queen Status</span><strong id="redQueenStatus">Defended</strong></div>
+        <div class="stat"><span>Blue Queen Status</span><strong id="blueQueenStatus">Defended</strong></div>
+        <div class="stat"><span>Green Queen Status</span><strong id="greenQueenStatus">Defended</strong></div>
+        <div class="stat"><span>Status</span><strong id="gameStatus">Running</strong></div>
+      </aside>
+    </section>
+
+    <section class="notes">
+      <strong>Behavior:</strong> ants run the editable brain for searching and returning. Food pickup and return-home movement require commands; delivery is automatic.
+    </section>
+
+    <section class="diagnostics-panel">
+      <div class="panel-title">
+        <h2>Diagnostics</h2>
+      </div>
+      <div class="diagnostics-grid">
+        <div class="diagnostic"><span>Food / 100 Ticks</span><strong id="diagFoodRate">0.00</strong></div>
+        <div class="diagnostic"><span>Pickups</span><strong id="diagPickups">0</strong></div>
+        <div class="diagnostic"><span>Last Delivery</span><strong id="diagLastDelivery">never</strong></div>
+        <div class="diagnostic"><span>Move Success</span><strong id="diagMoveSuccess">0%</strong></div>
+        <div class="diagnostic"><span>Blocked Moves</span><strong id="diagBlockedMoves">0</strong></div>
+        <div class="diagnostic"><span>Idle Commands</span><strong id="diagIdleCommands">0</strong></div>
+        <div class="diagnostic"><span>Food Here Marks</span><strong id="diagFoodHereMarks">0</strong></div>
+        <div class="diagnostic"><span>Trail Cells</span><strong id="diagTrailCells">0</strong></div>
+        <div class="diagnostic"><span>Avg Trail Life</span><strong id="diagTrailLife">0%</strong></div>
+        <div class="diagnostic"><span>Hatched Ants</span><strong id="diagHatchedAnts">0</strong></div>
+        <div class="diagnostic"><span>Trails Laid / Renewed</span><strong id="diagTrailsLaid">0</strong></div>
+        <div class="diagnostic"><span>Trail Follows</span><strong id="diagTrailFollows">0</strong></div>
+        <div class="diagnostic"><span>Trail Expired (Before Food Depleted)</span><strong id="diagTrailExpired">0</strong></div>
+        <div class="diagnostic"><span>Attack Marks</span><strong id="diagAttackMarks">0</strong></div>
+        <div class="diagnostic"><span>Combat Damage</span><strong id="diagCombatDamage">0</strong></div>
+        <div class="diagnostic"><span>Queen Damage Taken R / B / G</span><strong id="diagQueenDamageTaken">0 / 0 / 0</strong></div>
+        <div class="diagnostic"><span>Queen Advances R / B / G</span><strong id="diagQueenMoves">0 / 0 / 0</strong></div>
+        <div class="diagnostic"><span>Queen Births R / B / G</span><strong id="diagQueenBirths">0 / 0 / 0</strong></div>
+        <div class="diagnostic"><span>Emergency Births R / B / G</span><strong id="diagEmergencyBirths">0 / 0 / 0</strong></div>
+        <div class="diagnostic"><span>Berserk Ants</span><strong id="diagBerserkAnts">0</strong></div>
+        <div class="diagnostic"><span>Red / Blue / Green Killed</span><strong id="diagKilled">0 / 0 / 0</strong></div>
+      </div>
+    </section>
+
+    <section class="auto-panel">
+      <div class="panel-title">
+        <h2>Auto Actions</h2>
+      </div>
+      <div class="auto-list">
+        <div class="command"><code>AUTO DELIVER</code>Food is delivered automatically when a carrying ant is next to its own queen.</div>
+        <div class="command"><code>AUTO HATCH</code>Every 5 delivered food hatches one new ant near that team's queen.</div>
+        <div class="command"><code>AUTO QUEEN BIRTH</code>Every living queen births one same-team ant every 1000 ticks, regardless of food.</div>
+        <div class="command"><code>AUTO EMERGENCY BIRTH</code>If a living queen has zero ants, she immediately births two ants and drops to half HP. Below 20 HP, she drops to 1 HP.</div>
+        <div class="command"><code>AUTO QUEEN CENTER STEP</code>Every 10000 ticks, each living queen takes one step toward the center.</div>
+        <div class="command"><code>AUTO QUEEN DAMAGE</code>Adjacent enemy ants damage queens for 1 HP every tick. Queens do not damage ants.</div>
+        <div class="command"><code>AUTO BERSERK</code>If a queen has no friendly ants within 5 squares, enemy ants within 5 squares of that queen go berserk and attack it.</div>
+      </div>
+    </section>
+
+    <section class="brain-panel">
+      <div class="panel-title">
+        <h2>Brains</h2>
+        <div>
+          <button id="applyBrainBtn" class="secondary">Apply Brains</button>
+          <button id="copyBrainBtn" class="secondary">Copy Red</button>
+        </div>
+      </div>
+      <div class="editor-wrap">
+        <div id="redLineNumbers" class="line-numbers" aria-hidden="true"></div>
+        <textarea id="redBrainCode" spellcheck="false"># Red brain
+# Only delivery is automatic.
+
+ATTACK WITHIN 6
+ATTACK MARKED WITHIN 5
+IF CARRYING THEN LAY FOOD TRAIL
+IF CARRYING THEN RETURN HOME
+IF CARRYING THEN SKIP TO 4
+IF FOOD HERE THEN PICKUP
+IF FOOD TRAIL HERE THEN FOLLOW FOOD TRAIL TO FOOD
+IF FOOD IS NEAR THEN MOVE TO FOOD
+IF FOOD HERE THEN PICKUP
+EXPLORE
+SKIP TO 4
+RETURN HOME
+FOLLOW FOOD TRAIL TO BASE
+LOOP</textarea>
+      </div>
+      <div class="editor-wrap brain-editor-secondary">
+        <div id="blueLineNumbers" class="line-numbers" aria-hidden="true"></div>
+        <textarea id="blueBrainCode" spellcheck="false"># Blue brain
+# Only delivery is automatic.
+
+ATTACK WITHIN 6
+ATTACK MARKED WITHIN 5
+IF CARRYING THEN LAY FOOD TRAIL
+IF CARRYING THEN RETURN HOME
+IF CARRYING THEN SKIP TO 4
+IF FOOD HERE THEN PICKUP
+IF FOOD TRAIL HERE THEN FOLLOW FOOD TRAIL TO FOOD
+IF FOOD IS NEAR THEN MOVE TO FOOD
+IF FOOD HERE THEN PICKUP
+EXPLORE
+SKIP TO 4
+RETURN HOME
+FOLLOW FOOD TRAIL TO BASE
+LOOP</textarea>
+      </div>
+      <div class="editor-wrap brain-editor-secondary">
+        <div id="greenLineNumbers" class="line-numbers" aria-hidden="true"></div>
+        <textarea id="greenBrainCode" spellcheck="false"># Green brain
+# Only delivery is automatic.
+
+ATTACK WITHIN 6
+ATTACK MARKED WITHIN 5
+IF CARRYING THEN LAY FOOD TRAIL
+IF CARRYING THEN RETURN HOME
+IF CARRYING THEN SKIP TO 4
+IF FOOD HERE THEN PICKUP
+IF FOOD TRAIL HERE THEN FOLLOW FOOD TRAIL TO FOOD
+IF FOOD IS NEAR THEN MOVE TO FOOD
+IF FOOD HERE THEN PICKUP
+EXPLORE
+SKIP TO 4
+RETURN HOME
+FOLLOW FOOD TRAIL TO BASE
+LOOP</textarea>
+      </div>
+      <div id="brainStatus" class="brain-status">Brain ready.</div>
+      <div class="command-reference" aria-label="Available brain commands">
+        <div class="command"><code># comment</code>Ignored note line for explaining the brain.</div>
+        <div class="command"><code>RETURN HOME</code>Move one tile closer to that ant team's queen. While carrying food, base-bound movement is five times slower.</div>
+        <div class="command"><code>PICKUP</code>Pick up one food from the current tile.</div>
+        <div class="command"><code>LAY FOOD TRAIL</code>While carrying food, mark the current tile with FOOD TRAIL directions. The mark lasts 1000 ticks and renews when laid again.</div>
+        <div class="command"><code>FOLLOW FOOD TRAIL TO FOOD</code>Follow a FOOD TRAIL marker in its food direction.</div>
+        <div class="command"><code>FOLLOW FOOD TRAIL TO BASE</code>Follow a FOOD TRAIL marker in its base direction. While carrying food, base-bound movement is five times slower.</div>
+        <div class="command"><code>MOVE TO FOOD</code>Move toward that team's discovered FOOD HERE pheromone within three tiles.</div>
+        <div class="command"><code>EXPLORE</code>Wander through valid grid tiles while searching for food.</div>
+        <div class="command"><code>ATTACK WITHIN X</code>Mark enemy ants within X squares of this team's nest with ATTACK. Adjacent marked enemies start combat.</div>
+        <div class="command"><code>ATTACK MARKED WITHIN X</code>Move toward the nearest attack-marked enemy ant within X squares.</div>
+        <div class="command"><code>LOOP</code>Jump to the first active instruction.</div>
+        <div class="command"><code>SKIP TO X</code>Jump to visible editor line X. The target line must contain a command.</div>
+        <div class="command"><code>IF CARRYING THEN &lt;command&gt;</code>Run a command only while the ant holds food.</div>
+        <div class="command"><code>IF FOOD HERE THEN &lt;command&gt;</code>Run a command only when current tile has food.</div>
+        <div class="command"><code>IF FOOD TRAIL HERE THEN &lt;command&gt;</code>Run a command only when current tile has that team's FOOD TRAIL.</div>
+        <div class="command"><code>IF FOOD IS NEAR THEN &lt;command&gt;</code>Sense that team's discovered FOOD HERE pheromones within three tiles.</div>
+      </div>
+    </section>
+
+    <section class="rules-panel">
+      <div class="panel-title">
+        <h2>Simulation Stats</h2>
+      </div>
+      <div class="rules-grid">
+        <div class="rule-stat"><span>Grid</span><strong id="ruleGrid">0 x 0</strong></div>
+        <div class="rule-stat"><span>Starting Red Ants</span><strong id="ruleStartAnts">0</strong></div>
+        <div class="rule-stat"><span>Starting Blue Ants</span><strong id="ruleEnemyAnts">0</strong></div>
+        <div class="rule-stat"><span>Starting Green Ants</span><strong id="ruleGreenAnts">0</strong></div>
+        <div class="rule-stat"><span>Food Sources</span><strong id="ruleFoodSources">0</strong></div>
+        <div class="rule-stat"><span>Food / Source</span><strong id="ruleFoodPerSource">0</strong></div>
+        <div class="rule-stat"><span>Starting Food</span><strong id="ruleStartingFood">0</strong></div>
+        <div class="rule-stat"><span>Food / Hatched Ant</span><strong id="ruleFoodPerHatch">0</strong></div>
+        <div class="rule-stat"><span>Ant HP</span><strong id="ruleAntHp">0</strong></div>
+        <div class="rule-stat"><span>Each Queen HP</span><strong id="ruleQueenHp">0</strong></div>
+        <div class="rule-stat"><span>Combat Damage Rate</span><strong id="ruleCombatRate">0 ticks</strong></div>
+        <div class="rule-stat"><span>Queen Damage Taken Rate</span><strong id="ruleQueenDamageRate">0 ticks</strong></div>
+        <div class="rule-stat"><span>Queen Advance Rate</span><strong id="ruleQueenMoveRate">0 ticks</strong></div>
+        <div class="rule-stat"><span>All Queen Center Step</span><strong id="ruleQueenCenterStepRate">0 ticks</strong></div>
+        <div class="rule-stat"><span>Queen Birth Rate</span><strong id="ruleQueenBirthRate">0 ticks</strong></div>
+        <div class="rule-stat"><span>Queen Defense Radius</span><strong id="ruleQueenDefenseRadius">0</strong></div>
+        <div class="rule-stat"><span>Food Sense Radius</span><strong id="ruleFoodSenseRadius">0</strong></div>
+        <div class="rule-stat"><span>FOOD HERE Lifetime</span><strong id="ruleFoodHereLife">0 ticks</strong></div>
+        <div class="rule-stat"><span>FOOD TRAIL Lifetime</span><strong id="ruleFoodTrailLife">0 ticks</strong></div>
+        <div class="rule-stat"><span>Base Return Slowdown</span><strong id="ruleReturnSlowdown">0x</strong></div>
+        <div class="rule-stat"><span>Tick Duration</span><strong id="ruleTickDuration">0 ms</strong></div>
+        <div class="rule-stat"><span>Red Nest</span><strong id="ruleRedNest">0,0</strong></div>
+        <div class="rule-stat"><span>Blue Nest</span><strong id="ruleBlueNest">0,0</strong></div>
+        <div class="rule-stat"><span>Green Nest</span><strong id="ruleGreenNest">0,0</strong></div>
+        <div class="rule-stat"><span>Active Food Sources</span><strong id="ruleActiveFoodSources">0</strong></div>
+        <div class="rule-stat"><span>Depleted Sources</span><strong id="ruleDepletedFoodSources">0</strong></div>
+        <div class="rule-stat"><span>Next Hatch At</span><strong id="ruleNextHatchAt">0 food</strong></div>
+        <div class="rule-stat"><span>Total Ants</span><strong id="ruleTotalAnts">0</strong></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const GRID = 30;
+    const CANVAS_SIZE = 720;
+    const START_ANTS = 6;
+    const START_ENEMY_ANTS = 6;
+    const START_GREEN_ANTS = 6;
+    const FOOD_PILES = 14;
+    const FOOD_PER_PILE = 20;
+    const FOOD_SENSE_RADIUS = 3;
+    const FOOD_HERE_MARK_TICKS = 2000;
+    const FOOD_TRAIL_MARK_TICKS = 1000;
+    const RETURN_HOME_MOVE_INTERVAL = 5;
+    const FOOD_PER_NEW_ANT = 5;
+    const ANT_MAX_HP = 5;
+    const QUEEN_MAX_HP = 100;
+    const EMERGENCY_BIRTH_ANTS = 2;
+    const EMERGENCY_BIRTH_LOW_HP = 20;
+    const COMBAT_DAMAGE_INTERVAL = 40;
+    const QUEEN_MOVE_INTERVAL = 200;
+    const ALL_QUEEN_CENTER_STEP_INTERVAL = 10000;
+    const QUEEN_BIRTH_INTERVAL = 1000;
+    const QUEEN_DEFENSE_RADIUS = 5;
+    const TICK_MS = 100;
+    const TEAMS = ['colony', 'enemy', 'green'];
+    const DIRS = [
+      {dx: 0, dy: -1},
+      {dx: 1, dy: 0},
+      {dx: 0, dy: 1},
+      {dx: -1, dy: 0},
+    ];
+
+    const canvas = document.querySelector('#board');
+    const ctx = canvas.getContext('2d');
+    const runBtn = document.querySelector('#runBtn');
+    const pauseBtn = document.querySelector('#pauseBtn');
+    const resetBtn = document.querySelector('#resetBtn');
+    const speedSlider = document.querySelector('#speedSlider');
+    const speedLabel = document.querySelector('#speedLabel');
+    const redBrainCode = document.querySelector('#redBrainCode');
+    const blueBrainCode = document.querySelector('#blueBrainCode');
+    const greenBrainCode = document.querySelector('#greenBrainCode');
+    const redLineNumbers = document.querySelector('#redLineNumbers');
+    const blueLineNumbers = document.querySelector('#blueLineNumbers');
+    const greenLineNumbers = document.querySelector('#greenLineNumbers');
+    const applyBrainBtn = document.querySelector('#applyBrainBtn');
+    const copyBrainBtn = document.querySelector('#copyBrainBtn');
+    const brainStatus = document.querySelector('#brainStatus');
+    const tickCount = document.querySelector('#tickCount');
+    const redFoodDelivered = document.querySelector('#redFoodDelivered');
+    const blueFoodDelivered = document.querySelector('#blueFoodDelivered');
+    const greenFoodDelivered = document.querySelector('#greenFoodDelivered');
+    const redAntCount = document.querySelector('#redAntCount');
+    const blueAntCount = document.querySelector('#blueAntCount');
+    const greenAntCount = document.querySelector('#greenAntCount');
+    const foodLeft = document.querySelector('#foodLeft');
+    const redCarryingCount = document.querySelector('#redCarryingCount');
+    const blueCarryingCount = document.querySelector('#blueCarryingCount');
+    const greenCarryingCount = document.querySelector('#greenCarryingCount');
+    const redQueenHp = document.querySelector('#redQueenHp');
+    const blueQueenHp = document.querySelector('#blueQueenHp');
+    const greenQueenHp = document.querySelector('#greenQueenHp');
+    const redQueenStatus = document.querySelector('#redQueenStatus');
+    const blueQueenStatus = document.querySelector('#blueQueenStatus');
+    const greenQueenStatus = document.querySelector('#greenQueenStatus');
+    const gameStatus = document.querySelector('#gameStatus');
+    const diagFoodRate = document.querySelector('#diagFoodRate');
+    const diagPickups = document.querySelector('#diagPickups');
+    const diagLastDelivery = document.querySelector('#diagLastDelivery');
+    const diagMoveSuccess = document.querySelector('#diagMoveSuccess');
+    const diagBlockedMoves = document.querySelector('#diagBlockedMoves');
+    const diagIdleCommands = document.querySelector('#diagIdleCommands');
+    const diagFoodHereMarks = document.querySelector('#diagFoodHereMarks');
+    const diagTrailCells = document.querySelector('#diagTrailCells');
+    const diagTrailLife = document.querySelector('#diagTrailLife');
+    const diagHatchedAnts = document.querySelector('#diagHatchedAnts');
+    const diagTrailsLaid = document.querySelector('#diagTrailsLaid');
+    const diagTrailFollows = document.querySelector('#diagTrailFollows');
+    const diagTrailExpired = document.querySelector('#diagTrailExpired');
+    const diagAttackMarks = document.querySelector('#diagAttackMarks');
+    const diagCombatDamage = document.querySelector('#diagCombatDamage');
+    const diagQueenDamageTaken = document.querySelector('#diagQueenDamageTaken');
+    const diagQueenMoves = document.querySelector('#diagQueenMoves');
+    const diagQueenBirths = document.querySelector('#diagQueenBirths');
+    const diagEmergencyBirths = document.querySelector('#diagEmergencyBirths');
+    const diagBerserkAnts = document.querySelector('#diagBerserkAnts');
+    const diagKilled = document.querySelector('#diagKilled');
+    const ruleGrid = document.querySelector('#ruleGrid');
+    const ruleStartAnts = document.querySelector('#ruleStartAnts');
+    const ruleEnemyAnts = document.querySelector('#ruleEnemyAnts');
+    const ruleGreenAnts = document.querySelector('#ruleGreenAnts');
+    const ruleFoodSources = document.querySelector('#ruleFoodSources');
+    const ruleFoodPerSource = document.querySelector('#ruleFoodPerSource');
+    const ruleStartingFood = document.querySelector('#ruleStartingFood');
+    const ruleFoodPerHatch = document.querySelector('#ruleFoodPerHatch');
+    const ruleAntHp = document.querySelector('#ruleAntHp');
+    const ruleQueenHp = document.querySelector('#ruleQueenHp');
+    const ruleCombatRate = document.querySelector('#ruleCombatRate');
+    const ruleQueenDamageRate = document.querySelector('#ruleQueenDamageRate');
+    const ruleQueenMoveRate = document.querySelector('#ruleQueenMoveRate');
+    const ruleQueenCenterStepRate = document.querySelector('#ruleQueenCenterStepRate');
+    const ruleQueenBirthRate = document.querySelector('#ruleQueenBirthRate');
+    const ruleQueenDefenseRadius = document.querySelector('#ruleQueenDefenseRadius');
+    const ruleFoodSenseRadius = document.querySelector('#ruleFoodSenseRadius');
+    const ruleFoodHereLife = document.querySelector('#ruleFoodHereLife');
+    const ruleFoodTrailLife = document.querySelector('#ruleFoodTrailLife');
+    const ruleReturnSlowdown = document.querySelector('#ruleReturnSlowdown');
+    const ruleTickDuration = document.querySelector('#ruleTickDuration');
+    const ruleRedNest = document.querySelector('#ruleRedNest');
+    const ruleBlueNest = document.querySelector('#ruleBlueNest');
+    const ruleGreenNest = document.querySelector('#ruleGreenNest');
+    const ruleActiveFoodSources = document.querySelector('#ruleActiveFoodSources');
+    const ruleDepletedFoodSources = document.querySelector('#ruleDepletedFoodSources');
+    const ruleNextHatchAt = document.querySelector('#ruleNextHatchAt');
+    const ruleTotalAnts = document.querySelector('#ruleTotalAnts');
+
+    let timer = null;
+    let state = null;
+    let redProgram = [];
+    let blueProgram = [];
+    let greenProgram = [];
+
+    function makeState() {
+      const queen = {x: 4, y: 4};
+      const enemyNest = {x: GRID - 5, y: 4};
+      const greenNest = {x: Math.floor(GRID / 2), y: GRID - 5};
+      const cells = Array.from({length: GRID}, () => Array.from({length: GRID}, makeCell));
+      const enemyAnts = nearbySpots(enemyNest, 1)
+        .filter(point => !samePoint(point, enemyNest))
+        .slice(0, START_ENEMY_ANTS)
+        .map((point, index) => makeEnemyAnt(point, index + 1));
+      const greenAnts = nearbySpots(greenNest, 1)
+        .filter(point => !samePoint(point, greenNest))
+        .slice(0, START_GREEN_ANTS)
+        .map((point, index) => makeGreenAnt(point, index + 1));
+      const blocked = new Set([pointKey(queen), pointKey(enemyNest), pointKey(greenNest), ...enemyAnts.map(pointKey), ...greenAnts.map(pointKey)]);
+      scatterFood(cells, blocked, [queen, enemyNest, greenNest]);
+      const ants = nearbySpots(queen, 2)
+        .filter(point => !samePoint(point, queen))
+        .slice(0, START_ANTS)
+        .map((point, index) => makeAnt(point, index + 1));
+      return {
+        tick: 0,
+        queen,
+        queenHp: QUEEN_MAX_HP,
+        enemyNest,
+        enemyNestHp: QUEEN_MAX_HP,
+        greenNest,
+        greenQueenHp: QUEEN_MAX_HP,
+        cells,
+        ants,
+        enemyAnts,
+        greenAnts,
+        delivered: 0,
+        redDelivered: 0,
+        blueDelivered: 0,
+        greenDelivered: 0,
+        nextRedAntId: START_ANTS + 1,
+        nextBlueAntId: START_ENEMY_ANTS + 1,
+        nextGreenAntId: START_GREEN_ANTS + 1,
+        nextRedHatchAt: FOOD_PER_NEW_ANT,
+        nextBlueHatchAt: FOOD_PER_NEW_ANT,
+        nextGreenHatchAt: FOOD_PER_NEW_ANT,
+        nextQueenMoveTick: null,
+        queenMoveIndex: 0,
+        winner: null,
+        metrics: makeMetrics(),
+      };
+    }
+
+    function makeCell() {
+      return {food: 0, foodHereTicks: emptyFoodHereTicks(), foodTrail: null};
+    }
+
+    function emptyFoodHereTicks() {
+      return Object.fromEntries(TEAMS.map(team => [team, 0]));
+    }
+
+    function makeMetrics() {
+      return {
+        pickups: 0,
+        lastDeliveryTick: null,
+        moveAttempts: 0,
+        successfulMoves: 0,
+        blockedMoves: 0,
+        idleCommands: 0,
+        foodHereTagged: 0,
+        foodHereExpired: 0,
+        trailsLaid: 0,
+        trailsRenewed: 0,
+        trailFollowsToFood: 0,
+        trailFollowsToBase: 0,
+        trailExpired: 0,
+        trailExpiredBeforeFoodDepleted: 0,
+        hatchedAnts: 0,
+        attackMarks: 0,
+        combatTicks: 0,
+        combatDamage: 0,
+        queenDamageTaken: 0,
+        redQueenDamageTaken: 0,
+        blueQueenDamageTaken: 0,
+        greenQueenDamageTaken: 0,
+        queenMoves: 0,
+        redQueenMoves: 0,
+        blueQueenMoves: 0,
+        greenQueenMoves: 0,
+        queenBirths: 0,
+        redQueenBirths: 0,
+        blueQueenBirths: 0,
+        greenQueenBirths: 0,
+        emergencyBirths: 0,
+        redEmergencyBirths: 0,
+        blueEmergencyBirths: 0,
+        greenEmergencyBirths: 0,
+        berserkTriggers: 0,
+        redKilled: 0,
+        blueKilled: 0,
+        greenKilled: 0,
+      };
+    }
+
+    function scatterFood(cells, blocked, nests) {
+      let placed = 0;
+      while (placed < FOOD_PILES) {
+        const point = {x: randomInt(GRID), y: randomInt(GRID)};
+        const key = pointKey(point);
+        if (blocked.has(key) || nests.some(nest => distance(point, nest) < 4)) continue;
+        if (cells[point.y][point.x].food > 0) continue;
+        cells[point.y][point.x].food = FOOD_PER_PILE;
+        blocked.add(key);
+        placed += 1;
+      }
+    }
+
+    function reset() {
+      compileBrains();
+      state = makeState();
+      draw();
+      updateStats();
+    }
+
+    function run() {
+      if (!compileBrains()) return;
+      stop();
+      timer = setInterval(step, Math.max(20, TICK_MS / Number(speedSlider.value)));
+    }
+
+    function stop() {
+      if (timer) clearInterval(timer);
+      timer = null;
+    }
+
+    function step() {
+      if (state.winner) {
+        stop();
+        draw();
+        updateStats();
+        return;
+      }
+      state.tick += 1;
+      decayFoodHereMarks();
+      decayFoodTrailMarks();
+      birthQueenAnts();
+      stepAllQueensTowardCenterOnInterval();
+
+      for (const ant of allAnts()) {
+        maybeDeliver(ant);
+        tagFoodHere(ant);
+      }
+      updateQueenDefenseAndBerserk();
+
+      applyAntMoves(state.ants, redProgram);
+      applyAntMoves(state.enemyAnts, blueProgram);
+      applyAntMoves(state.greenAnts, greenProgram);
+      resolveCombat();
+      resolveQueenAttacks();
+      emergencyBirthForAntlessQueens();
+      if (checkWinner()) {
+        stop();
+        draw();
+        updateStats();
+        return;
+      }
+      advanceQueensAfterFoodGone();
+
+      for (const ant of allAnts()) {
+        maybeDeliver(ant);
+      }
+
+      draw();
+      updateStats();
+    }
+
+    function applyAntMoves(ants, program) {
+      const moves = ants.map(ant => decideMove(ant, program));
+      for (const move of moves) {
+        if (!move.target) continue;
+        state.metrics.moveAttempts += 1;
+        if (!inBounds(move.target.x, move.target.y) || isNestPoint(move.target)) {
+          state.metrics.blockedMoves += 1;
+          continue;
+        }
+        state.metrics.successfulMoves += 1;
+        move.ant.dir = directionBetween(move.ant, move.target);
+        move.ant.x = move.target.x;
+        move.ant.y = move.target.y;
+        tagFoodHere(move.ant);
+      }
+    }
+
+    function decideMove(ant, program) {
+      const berserkTarget = berserkMoveTarget(ant);
+      if (berserkTarget) return {ant, target: berserkTarget};
+      return decide(ant, program);
+    }
+
+    function maybeDeliver(ant) {
+      if (!ant.carrying || distance(ant, homeNest(ant)) > 1) return;
+      ant.carrying = false;
+      ant.mode = 'explore';
+      ant.trailTarget = null;
+      ant.foodSource = null;
+      ant.returnMoveCharge = 0;
+      state.delivered += 1;
+      setDelivered(ant.team, deliveredForTeam(ant.team) + 1);
+      state.metrics.lastDeliveryTick = state.tick;
+      hatchAntsIfReady(ant.team);
+    }
+
+    function hatchAntsIfReady(team) {
+      while (deliveredForTeam(team) >= nextHatchForTeam(team)) {
+        addAntForTeam(team);
+        setNextHatch(team, nextHatchForTeam(team) + FOOD_PER_NEW_ANT);
+        state.metrics.hatchedAnts += 1;
+      }
+    }
+
+    function birthQueenAnts() {
+      if (state.tick % QUEEN_BIRTH_INTERVAL !== 0) return;
+      for (const queen of livingQueens()) {
+        addAntForTeam(queen.team);
+        state.metrics.queenBirths += 1;
+        incrementQueenBirths(queen.team, 1);
+      }
+    }
+
+    function emergencyBirthForAntlessQueens() {
+      for (const queen of livingQueens()) {
+        if (teamAnts(queen.team).length > 0) continue;
+        setQueenHp(queen.team, emergencyBirthHealth(queen.hp));
+        for (let i = 0; i < EMERGENCY_BIRTH_ANTS; i += 1) addAntForTeam(queen.team);
+        state.metrics.emergencyBirths += EMERGENCY_BIRTH_ANTS;
+        incrementEmergencyBirths(queen.team, EMERGENCY_BIRTH_ANTS);
+      }
+    }
+
+    function emergencyBirthHealth(hp) {
+      if (hp < EMERGENCY_BIRTH_LOW_HP) return 1;
+      return Math.max(1, Math.ceil(hp / 2));
+    }
+
+    function addAntForTeam(team) {
+      teamAnts(team).push(makeTeamAnt(spawnAntPoint(team), nextAntIdForTeam(team), team));
+      setNextAntId(team, nextAntIdForTeam(team) + 1);
+    }
+
+    function makeAnt(point, id) {
+      return makeTeamAnt(point, id, 'colony');
+    }
+
+    function makeEnemyAnt(point, id) {
+      return makeTeamAnt(point, id, 'enemy');
+    }
+
+    function makeGreenAnt(point, id) {
+      return makeTeamAnt(point, id, 'green');
+    }
+
+    function makeTeamAnt(point, id, team) {
+      return {
+        id,
+        team,
+        x: point.x,
+        y: point.y,
+        dir: randomInt(4),
+        hp: ANT_MAX_HP,
+        attack: false,
+        carrying: false,
+        mode: 'explore',
+        trailTarget: null,
+        foodSource: null,
+        returnMoveCharge: 0,
+        berserkTarget: null,
+        pc: 0,
+      };
+    }
+
+    function teamLabel(team) {
+      if (team === 'enemy') return 'Blue';
+      if (team === 'green') return 'Green';
+      return 'Red';
+    }
+
+    function teamColor(team) {
+      if (team === 'enemy') return '#5e92df';
+      if (team === 'green') return '#5bbf6a';
+      return '#d34843';
+    }
+
+    function teamRgba(team, opacity) {
+      if (team === 'enemy') return `rgba(94, 146, 223, ${opacity})`;
+      if (team === 'green') return `rgba(91, 191, 106, ${opacity})`;
+      return `rgba(211, 72, 67, ${opacity})`;
+    }
+
+    function teamAnts(team) {
+      if (team === 'enemy') return state.enemyAnts;
+      if (team === 'green') return state.greenAnts;
+      return state.ants;
+    }
+
+    function enemyAntsFor(team) {
+      return allAnts().filter(ant => ant.team !== team);
+    }
+
+    function deliveredForTeam(team) {
+      if (team === 'enemy') return state.blueDelivered;
+      if (team === 'green') return state.greenDelivered;
+      return state.redDelivered;
+    }
+
+    function setDelivered(team, value) {
+      if (team === 'enemy') {
+        state.blueDelivered = value;
+      } else if (team === 'green') {
+        state.greenDelivered = value;
+      } else {
+        state.redDelivered = value;
+      }
+    }
+
+    function nextAntIdForTeam(team) {
+      if (team === 'enemy') return state.nextBlueAntId;
+      if (team === 'green') return state.nextGreenAntId;
+      return state.nextRedAntId;
+    }
+
+    function setNextAntId(team, value) {
+      if (team === 'enemy') {
+        state.nextBlueAntId = value;
+      } else if (team === 'green') {
+        state.nextGreenAntId = value;
+      } else {
+        state.nextRedAntId = value;
+      }
+    }
+
+    function nextHatchForTeam(team) {
+      if (team === 'enemy') return state.nextBlueHatchAt;
+      if (team === 'green') return state.nextGreenHatchAt;
+      return state.nextRedHatchAt;
+    }
+
+    function setNextHatch(team, value) {
+      if (team === 'enemy') {
+        state.nextBlueHatchAt = value;
+      } else if (team === 'green') {
+        state.nextGreenHatchAt = value;
+      } else {
+        state.nextRedHatchAt = value;
+      }
+    }
+
+    function queenHpForTeam(team) {
+      if (team === 'enemy') return state.enemyNestHp;
+      if (team === 'green') return state.greenQueenHp;
+      return state.queenHp;
+    }
+
+    function setQueenHp(team, value) {
+      if (team === 'enemy') {
+        state.enemyNestHp = value;
+      } else if (team === 'green') {
+        state.greenQueenHp = value;
+      } else {
+        state.queenHp = value;
+      }
+    }
+
+    function incrementQueenDamageTaken(team, value) {
+      if (team === 'enemy') {
+        state.metrics.blueQueenDamageTaken += value;
+      } else if (team === 'green') {
+        state.metrics.greenQueenDamageTaken += value;
+      } else {
+        state.metrics.redQueenDamageTaken += value;
+      }
+    }
+
+    function incrementQueenMoves(team, value) {
+      if (team === 'enemy') {
+        state.metrics.blueQueenMoves += value;
+      } else if (team === 'green') {
+        state.metrics.greenQueenMoves += value;
+      } else {
+        state.metrics.redQueenMoves += value;
+      }
+    }
+
+    function incrementQueenBirths(team, value) {
+      if (team === 'enemy') {
+        state.metrics.blueQueenBirths += value;
+      } else if (team === 'green') {
+        state.metrics.greenQueenBirths += value;
+      } else {
+        state.metrics.redQueenBirths += value;
+      }
+    }
+
+    function incrementEmergencyBirths(team, value) {
+      if (team === 'enemy') {
+        state.metrics.blueEmergencyBirths += value;
+      } else if (team === 'green') {
+        state.metrics.greenEmergencyBirths += value;
+      } else {
+        state.metrics.redEmergencyBirths += value;
+      }
+    }
+
+    function updateQueenDefenseAndBerserk() {
+      const undefendedQueens = allQueens().filter(queen => queen.hp > 0 && isQueenUndefended(queen.team));
+      if (!undefendedQueens.length) return;
+      for (const ant of allAnts()) {
+        const possibleTargets = undefendedQueens
+          .filter(queen => queen.team !== ant.team && distance(ant, queen.point) <= QUEEN_DEFENSE_RADIUS)
+          .sort((a, b) => distance(ant, a.point) - distance(ant, b.point));
+        if (!possibleTargets.length) continue;
+        if (!ant.berserkTarget) state.metrics.berserkTriggers += 1;
+        ant.berserkTarget = possibleTargets[0].team;
+        markForAttack(ant);
+      }
+    }
+
+    function isQueenUndefended(team) {
+      const queen = allQueens().find(item => item.team === team);
+      if (!queen || queen.hp <= 0) return false;
+      return !teamAnts(team).some(ant => distance(ant, queen.point) <= QUEEN_DEFENSE_RADIUS);
+    }
+
+    function queenStatusLabel(team) {
+      return isQueenUndefended(team) ? 'Undefended' : 'Defended';
+    }
+
+    function berserkMoveTarget(ant) {
+      if (!ant.berserkTarget) return null;
+      const queen = allQueens().find(item => item.team === ant.berserkTarget && item.hp > 0);
+      if (!queen) {
+        ant.berserkTarget = null;
+        return null;
+      }
+      return stepTowardTarget(ant, queen.point);
+    }
+
+    function stepEnemyAnts() {
+      const moves = state.enemyAnts.map(ant => decide(ant, blueProgram));
+      for (const move of moves) {
+        if (!move.target) continue;
+        state.metrics.moveAttempts += 1;
+        if (!inBounds(move.target.x, move.target.y) || isNestPoint(move.target)) {
+          state.metrics.blockedMoves += 1;
+          continue;
+        }
+        move.ant.dir = directionBetween(move.ant, move.target);
+        move.ant.x = move.target.x;
+        move.ant.y = move.target.y;
+        state.metrics.successfulMoves += 1;
+        tagFoodHere(move.ant);
+      }
+    }
+
+    function enemyExploreTarget(ant) {
+      const options = shuffled(neighbors(ant))
+        .filter(point => inBounds(point.x, point.y) && !isNestPoint(point));
+      return options[0] || null;
+    }
+
+    function markAttackTargets(ant, radius) {
+      const nest = homeNest(ant);
+      const targets = enemyAntsFor(ant.team);
+      for (const target of targets) {
+        if (distance(target, nest) > radius) continue;
+        markForAttack(target);
+      }
+    }
+
+    function markForAttack(ant) {
+      if (ant.attack) return;
+      ant.attack = true;
+      state.metrics.attackMarks += 1;
+    }
+
+    function attackMarkedTarget(ant, radius) {
+      const targets = enemyAntsFor(ant.team);
+      const markedTargets = targets
+        .filter(target => target.attack && distance(ant, target) > 0 && distance(ant, target) <= radius)
+        .sort((a, b) => distance(ant, a) - distance(ant, b));
+      if (!markedTargets.length) return null;
+      const nearestDistance = distance(ant, markedTargets[0]);
+      const nearest = shuffled(markedTargets.filter(target => distance(ant, target) === nearestDistance))[0];
+      if (nearestDistance === 1) return null;
+      const options = shuffled(neighbors(ant))
+        .filter(point => inBounds(point.x, point.y) && !isNestPoint(point))
+        .sort((a, b) => distance(a, nearest) - distance(b, nearest));
+      const bestDistance = distance(options[0], nearest);
+      const best = options.filter(point => distance(point, nearest) === bestDistance);
+      return best[randomInt(best.length)] || null;
+    }
+
+    function stepTowardTarget(ant, target) {
+      if (distance(ant, target) <= 1) return null;
+      const currentDistance = distance(ant, target);
+      const options = shuffled(neighbors(ant))
+        .filter(point => inBounds(point.x, point.y) && !isNestPoint(point))
+        .sort((a, b) => distance(a, target) - distance(b, target));
+      if (!options.length || distance(options[0], target) >= currentDistance) return null;
+      const bestDistance = distance(options[0], target);
+      const best = options.filter(point => distance(point, target) === bestDistance);
+      return best[randomInt(best.length)] || null;
+    }
+
+    function resolveCombat() {
+      const damage = new Map();
+      const combatPairs = [];
+      const ants = allAnts();
+      for (let i = 0; i < ants.length; i += 1) {
+        for (let j = i + 1; j < ants.length; j += 1) {
+          const ant = ants[i];
+          const enemy = ants[j];
+          if (ant.team === enemy.team || distance(ant, enemy) !== 1 || (!ant.attack && !enemy.attack)) continue;
+          markForAttack(ant);
+          markForAttack(enemy);
+          combatPairs.push([ant, enemy]);
+          damage.set(ant, (damage.get(ant) || 0) + 1);
+          damage.set(enemy, (damage.get(enemy) || 0) + 1);
+        }
+      }
+      if (!damage.size) return;
+      state.metrics.combatTicks += 1;
+      if (state.metrics.combatTicks % COMBAT_DAMAGE_INTERVAL !== 0) return;
+      for (const [ant, amount] of damage) {
+        ant.hp -= amount;
+        state.metrics.combatDamage += amount;
+      }
+      breakMutualCombatDeaths(combatPairs);
+      removeDeadAnts();
+    }
+
+    function breakMutualCombatDeaths(combatPairs) {
+      for (const [ant, enemy] of combatPairs) {
+        if (ant.hp > 0 || enemy.hp > 0) continue;
+        const survivor = Math.random() < 0.5 ? ant : enemy;
+        survivor.hp = 1;
+      }
+    }
+
+    function removeDeadAnts() {
+      const redBefore = state.ants.length;
+      const blueBefore = state.enemyAnts.length;
+      const greenBefore = state.greenAnts.length;
+      state.ants = state.ants.filter(ant => ant.hp > 0);
+      state.enemyAnts = state.enemyAnts.filter(ant => ant.hp > 0);
+      state.greenAnts = state.greenAnts.filter(ant => ant.hp > 0);
+      state.metrics.redKilled += redBefore - state.ants.length;
+      state.metrics.blueKilled += blueBefore - state.enemyAnts.length;
+      state.metrics.greenKilled += greenBefore - state.greenAnts.length;
+    }
+
+    function resolveQueenAttacks() {
+      for (const queen of allQueens()) {
+        if (queen.hp <= 0) continue;
+        const attackers = enemyAntsFor(queen.team).filter(ant => distance(ant, queen.point) === 1);
+        for (const ant of attackers) {
+          markForAttack(ant);
+        }
+        if (attackers.length) {
+          setQueenHp(queen.team, Math.max(0, queenHpForTeam(queen.team) - attackers.length));
+          state.metrics.queenDamageTaken += attackers.length;
+          incrementQueenDamageTaken(queen.team, attackers.length);
+        }
+      }
+      removeDeadAnts();
+    }
+
+    function advanceQueensAfterFoodGone() {
+      if (totalFoodLeft() > 0) return;
+      if (state.nextQueenMoveTick === null) {
+        state.nextQueenMoveTick = state.tick + QUEEN_MOVE_INTERVAL;
+        return;
+      }
+      if (state.tick < state.nextQueenMoveTick) return;
+      const queen = nextLivingQueen();
+      if (queen && stepPointToward(queen.point, gridCenter())) {
+        state.metrics.queenMoves += 1;
+        incrementQueenMoves(queen.team, 1);
+      }
+      state.nextQueenMoveTick += QUEEN_MOVE_INTERVAL;
+    }
+
+    function stepAllQueensTowardCenterOnInterval() {
+      if (state.tick % ALL_QUEEN_CENTER_STEP_INTERVAL !== 0) return;
+      for (const queen of livingQueens()) {
+        if (stepPointToward(queen.point, gridCenter())) {
+          state.metrics.queenMoves += 1;
+          incrementQueenMoves(queen.team, 1);
+        }
+      }
+    }
+
+    function nextLivingQueen() {
+      const queens = livingQueens();
+      if (!queens.length) return null;
+      const queen = queens[state.queenMoveIndex % queens.length];
+      state.queenMoveIndex = (state.queenMoveIndex + 1) % queens.length;
+      return queen;
+    }
+
+    function livingQueens() {
+      return allQueens().filter(queen => queen.hp > 0);
+    }
+
+    function allQueens() {
+      return [
+        {team: 'colony', point: state.queen, hp: state.queenHp},
+        {team: 'enemy', point: state.enemyNest, hp: state.enemyNestHp},
+        {team: 'green', point: state.greenNest, hp: state.greenQueenHp},
+      ];
+    }
+
+    function checkWinner() {
+      if (state.winner) return true;
+      const queens = livingQueens();
+      if (queens.length !== 1) return false;
+      state.winner = queens[0].team;
+      return true;
+    }
+
+    function winnerLabel() {
+      if (state.winner) return `${teamLabel(state.winner)} Wins`;
+      return 'Running';
+    }
+
+    function gridCenter() {
+      return {x: Math.floor(GRID / 2), y: Math.floor(GRID / 2)};
+    }
+
+    function stepPointToward(point, target) {
+      if (samePoint(point, target)) return false;
+      const currentDistance = distance(point, target);
+      const options = neighbors(point)
+        .filter(next => inBounds(next.x, next.y) && !isOtherQueenPoint(next, point))
+        .sort((a, b) => distance(a, target) - distance(b, target));
+      if (!options.length || distance(options[0], target) >= currentDistance) return false;
+      point.x = options[0].x;
+      point.y = options[0].y;
+      return true;
+    }
+
+    function isOtherQueenPoint(point, movingQueen) {
+      return allQueens().some(queen => queen.point !== movingQueen && queen.hp > 0 && samePoint(point, queen.point));
+    }
+
+    function spawnAntPoint(team = 'colony') {
+      const nest = homeNestForTeam(team);
+      const options = nearbySpots(nest, 2).filter(point => !samePoint(point, nest));
+      return options[0] || {x: nest.x, y: Math.max(0, nest.y - 1)};
+    }
+
+    function homeNest(ant) {
+      return homeNestForTeam(ant.team);
+    }
+
+    function homeNestForTeam(team) {
+      if (team === 'enemy') return state.enemyNest;
+      if (team === 'green') return state.greenNest;
+      return state.queen;
+    }
+
+    function allAnts() {
+      return [...state.ants, ...state.enemyAnts, ...state.greenAnts];
+    }
+
+    function maybePickup(ant) {
+      const cell = state.cells[ant.y][ant.x];
+      if (ant.carrying || cell.food <= 0) return;
+      tagFoodHere(ant);
+      cell.food -= 1;
+      if (cell.food <= 0) clearFoodHereMarks(cell);
+      ant.carrying = true;
+      ant.mode = 'return';
+      ant.trailTarget = null;
+      ant.foodSource = {x: ant.x, y: ant.y};
+      ant.returnMoveCharge = 0;
+      state.metrics.pickups += 1;
+    }
+
+    function tagFoodHere(ant) {
+      const cell = state.cells[ant.y][ant.x];
+      if (cell.food <= 0) return;
+      ensureFoodHereTicks(cell);
+      if (cell.foodHereTicks[ant.team] <= 0) state.metrics.foodHereTagged += 1;
+      cell.foodHereTicks[ant.team] = FOOD_HERE_MARK_TICKS;
+    }
+
+    function decayFoodHereMarks() {
+      for (const row of state.cells) {
+        for (const cell of row) {
+          ensureFoodHereTicks(cell);
+          for (const team of TEAMS) {
+            if (cell.foodHereTicks[team] <= 0) continue;
+            cell.foodHereTicks[team] -= 1;
+            if (cell.foodHereTicks[team] <= 0) state.metrics.foodHereExpired += 1;
+          }
+        }
+      }
+    }
+
+    function ensureFoodHereTicks(cell) {
+      if (typeof cell.foodHereTicks === 'number') {
+        const ticks = cell.foodHereTicks;
+        cell.foodHereTicks = emptyFoodHereTicks();
+        if (ticks > 0) cell.foodHereTicks.colony = ticks;
+      }
+      if (!cell.foodHereTicks) cell.foodHereTicks = emptyFoodHereTicks();
+      for (const team of TEAMS) {
+        if (cell.foodHereTicks[team] === undefined) cell.foodHereTicks[team] = 0;
+      }
+    }
+
+    function clearFoodHereMarks(cell) {
+      cell.foodHereTicks = emptyFoodHereTicks();
+    }
+
+    function foodHereTicksForTeam(cell, team) {
+      ensureFoodHereTicks(cell);
+      return cell.foodHereTicks[team] || 0;
+    }
+
+    function activeFoodHereTeams(cell) {
+      ensureFoodHereTicks(cell);
+      return TEAMS.filter(team => cell.foodHereTicks[team] > 0);
+    }
+
+    function decide(ant, program) {
+      if (!program.length) return {ant, target: null};
+      if (ant.pc < 0 || ant.pc >= program.length) ant.pc = 0;
+      const result = executeInstruction(ant, program[ant.pc]);
+      ant.pc = result.repeat ? ant.pc : result.nextPc === undefined ? (ant.pc + 1) % program.length : result.nextPc;
+      if (!result.target && result.nextPc === undefined && !result.didAct) state.metrics.idleCommands += 1;
+      return {ant, target: result.target || null};
+    }
+
+    function executeInstruction(ant, instruction) {
+      if (instruction.kind === 'if') {
+        if (!sense(ant, instruction.sense)) return {};
+        return executeInstruction(ant, instruction.then);
+      }
+      if (instruction.kind === 'return_home') {
+        const target = returnHomeTarget(ant);
+        return {target};
+      }
+      if (instruction.kind === 'pickup') {
+        maybePickup(ant);
+        return {didAct: true};
+      }
+      if (instruction.kind === 'lay_food_trail') {
+        layFoodTrail(ant);
+        return {didAct: true};
+      }
+      if (instruction.kind === 'attack_within') {
+        markAttackTargets(ant, instruction.radius);
+        return {didAct: true};
+      }
+      if (instruction.kind === 'attack_marked_within') return {target: attackMarkedTarget(ant, instruction.radius)};
+      if (instruction.kind === 'follow_food_trail') return {target: followFoodTrailTarget(ant, instruction.direction)};
+      if (instruction.kind === 'move_to_food') return {target: foodHereMoveTarget(ant)};
+      if (instruction.kind === 'explore') return {target: exploreTarget(ant)};
+      if (instruction.kind === 'loop') return {nextPc: 0};
+      if (instruction.kind === 'skip') return {nextPc: instruction.targetPc};
+      return {};
+    }
+
+    function sense(ant, senseName) {
+      if (senseName === 'carrying') return ant.carrying;
+      if (senseName === 'food_here') return state.cells[ant.y][ant.x].food > 0;
+      if (senseName === 'food_trail_here') return isTeamFoodTrail(state.cells[ant.y][ant.x].foodTrail, ant.team);
+      if (senseName === 'food_is_near') return Boolean(nearbyFoodHereTarget(ant));
+      return false;
+    }
+
+    function layFoodTrail(ant) {
+      if (!ant.carrying) return;
+      const target = stepTowardHome(ant);
+      if (!target) return;
+      const toBase = directionBetween(ant, target);
+      const existingTrail = state.cells[ant.y][ant.x].foodTrail;
+      if (isTeamFoodTrail(existingTrail, ant.team)) {
+        state.metrics.trailsRenewed += 1;
+      } else {
+        state.metrics.trailsLaid += 1;
+      }
+      state.cells[ant.y][ant.x].foodTrail = {
+        owner: ant.team,
+        toBase,
+        toFood: oppositeDirection(toBase),
+        foodSource: ant.foodSource ? {...ant.foodSource} : {x: ant.x, y: ant.y},
+        ticks: FOOD_TRAIL_MARK_TICKS,
+      };
+      ant.trailTarget = target;
+    }
+
+    function followFoodTrailTarget(ant, direction) {
+      const trail = state.cells[ant.y][ant.x].foodTrail;
+      if (!isTeamFoodTrail(trail, ant.team)) return null;
+      if (direction === 'base' && !returnMoveReady(ant)) return null;
+      const dirIndex = direction === 'base' ? trail.toBase : trail.toFood;
+      const target = stepInDirection(ant, dirIndex);
+      if (!inBounds(target.x, target.y) || isNestPoint(target)) return null;
+      if (direction === 'base') {
+        state.metrics.trailFollowsToBase += 1;
+      } else {
+        state.metrics.trailFollowsToFood += 1;
+      }
+      return target;
+    }
+
+    function isTeamFoodTrail(trail, team) {
+      return Boolean(trail && trail.owner === team && trail.ticks > 0);
+    }
+
+    function isActiveFoodTrail(trail) {
+      return Boolean(trail && trail.ticks > 0);
+    }
+
+    function decayFoodTrailMarks() {
+      for (const row of state.cells) {
+        for (const cell of row) {
+          if (!cell.foodTrail) continue;
+          cell.foodTrail.ticks -= 1;
+          if (cell.foodTrail.ticks <= 0) {
+            if (trailFoodRemaining(cell.foodTrail) > 0) state.metrics.trailExpiredBeforeFoodDepleted += 1;
+            cell.foodTrail = null;
+            state.metrics.trailExpired += 1;
+          }
+        }
+      }
+    }
+
+    function trailFoodRemaining(trail) {
+      if (!trail.foodSource || !inBounds(trail.foodSource.x, trail.foodSource.y)) return 0;
+      return state.cells[trail.foodSource.y][trail.foodSource.x].food;
+    }
+
+    function foodHereMoveTarget(ant) {
+      const target = nearbyFoodHereTarget(ant);
+      if (!target) return null;
+      if (distance(ant, target) === 1) return target;
+      const options = shuffled(neighbors(ant))
+        .filter(point => inBounds(point.x, point.y) && !isNestPoint(point))
+        .sort((a, b) => distance(a, target) - distance(b, target));
+      const bestDistance = distance(options[0], target);
+      const best = options.filter(point => distance(point, target) === bestDistance);
+      return best[randomInt(best.length)] || null;
+    }
+
+    function nearbyFoodHereTarget(ant) {
+      const targets = [];
+      for (let y = Math.max(0, ant.y - FOOD_SENSE_RADIUS); y <= Math.min(GRID - 1, ant.y + FOOD_SENSE_RADIUS); y += 1) {
+        for (let x = Math.max(0, ant.x - FOOD_SENSE_RADIUS); x <= Math.min(GRID - 1, ant.x + FOOD_SENSE_RADIUS); x += 1) {
+          const point = {x, y};
+          const cell = state.cells[y][x];
+          if (isNestPoint(point) || foodHereTicksForTeam(cell, ant.team) <= 0 || cell.food <= 0) continue;
+          const range = distance(ant, point);
+          if (range > 0 && range <= FOOD_SENSE_RADIUS) targets.push({...point, range});
+        }
+      }
+      if (!targets.length) return null;
+      targets.sort((a, b) => a.range - b.range);
+      const bestRange = targets[0].range;
+      const best = targets.filter(point => point.range === bestRange);
+      return best[randomInt(best.length)] || null;
+    }
+
+    function exploreTarget(ant) {
+      const forward = aheadOf(ant);
+      if (Math.random() < 0.58 && inBounds(forward.x, forward.y) && !isNestPoint(forward)) return forward;
+      const options = shuffled(neighbors(ant)).filter(point => inBounds(point.x, point.y) && !isNestPoint(point));
+      return options[0] || null;
+    }
+
+    function stepTowardHome(ant) {
+      const nest = homeNest(ant);
+      if (distance(ant, nest) <= 1) return null;
+      const options = neighbors(ant)
+        .filter(point => inBounds(point.x, point.y) && !isNestPoint(point))
+        .sort((a, b) => distance(a, nest) - distance(b, nest));
+      const bestDistance = distance(options[0], nest);
+      const best = options.filter(point => distance(point, nest) === bestDistance);
+      return best[randomInt(best.length)] || null;
+    }
+
+    function returnHomeTarget(ant) {
+      if (!returnMoveReady(ant)) return null;
+      if (ant.trailTarget && distance(ant, ant.trailTarget) === 1 && !isNestPoint(ant.trailTarget)) {
+        const target = ant.trailTarget;
+        ant.trailTarget = null;
+        return target;
+      }
+      ant.trailTarget = null;
+      return stepTowardHome(ant);
+    }
+
+    function returnMoveReady(ant) {
+      if (!ant.carrying) return true;
+      ant.returnMoveCharge = (ant.returnMoveCharge || 0) + 1;
+      if (ant.returnMoveCharge < RETURN_HOME_MOVE_INTERVAL) return false;
+      ant.returnMoveCharge = 0;
+      return true;
+    }
+
+    function compileBrains() {
+      const redResult = parseBrain(redBrainCode.value);
+      const blueResult = parseBrain(blueBrainCode.value);
+      const greenResult = parseBrain(greenBrainCode.value);
+      const errors = [
+        ...redResult.errors.map(error => `Red: ${error}`),
+        ...blueResult.errors.map(error => `Blue: ${error}`),
+        ...greenResult.errors.map(error => `Green: ${error}`),
+      ];
+      if (errors.length) {
+        brainStatus.classList.add('error');
+        brainStatus.textContent = errors.join('\n');
+        stop();
+        return false;
+      }
+      redProgram = redResult.instructions;
+      blueProgram = blueResult.instructions;
+      greenProgram = greenResult.instructions;
+      for (const ant of state ? allAnts() : []) ant.pc = 0;
+      brainStatus.classList.remove('error');
+      brainStatus.textContent = `Brains ready: red ${redProgram.length}, blue ${blueProgram.length}, green ${greenProgram.length}.`;
+      return true;
+    }
+
+    function parseBrain(source) {
+      const instructions = [];
+      const errors = [];
+      source.split('\n').forEach((rawLine, rawIndex) => {
+        const withoutComment = rawLine.split('#')[0].trim();
+        if (!withoutComment) return;
+        const parsed = parseInstruction(withoutComment);
+        if (parsed.error) {
+          errors.push(`Line ${rawIndex + 1}: ${parsed.error}`);
+        } else {
+          stampSourceLine(parsed.instruction, rawIndex + 1);
+          instructions.push(parsed.instruction);
+        }
+      });
+      resolveSkipTargets(instructions, errors);
+      if (!instructions.length) errors.push('Brain must contain at least one instruction.');
+      return {instructions, errors};
+    }
+
+    function parseInstruction(line) {
+      const upper = line.toUpperCase().replace(/\s+/g, ' ').trim();
+      if (upper.startsWith('IF ')) {
+        const match = upper.match(/^IF (.+) THEN (.+)$/);
+        if (!match) return {error: 'Expected IF <condition> THEN <command>.'};
+        const senseName = parseSense(match[1]);
+        if (!senseName) return {error: `Unknown condition "${match[1]}".`};
+        const thenParsed = parseInstruction(match[2]);
+        if (thenParsed.error) return {error: thenParsed.error};
+        return {instruction: {kind: 'if', sense: senseName, then: thenParsed.instruction}};
+      }
+      if (upper === 'RETURN HOME') return {instruction: {kind: 'return_home'}};
+      if (upper === 'PICKUP') return {instruction: {kind: 'pickup'}};
+      if (upper === 'LAY FOOD TRAIL') return {instruction: {kind: 'lay_food_trail'}};
+      if (upper === 'FOLLOW FOOD TRAIL TO FOOD') return {instruction: {kind: 'follow_food_trail', direction: 'food'}};
+      if (upper === 'FOLLOW FOOD TRAIL TO BASE') return {instruction: {kind: 'follow_food_trail', direction: 'base'}};
+      if (upper === 'MOVE TO FOOD') return {instruction: {kind: 'move_to_food'}};
+      if (upper === 'EXPLORE') return {instruction: {kind: 'explore'}};
+      const attackMarkedMatch = upper.match(/^ATTACK MARKED WITHIN (\d+)$/);
+      if (attackMarkedMatch) return {instruction: {kind: 'attack_marked_within', radius: Number(attackMarkedMatch[1])}};
+      const attackMatch = upper.match(/^ATTACK WITHIN (\d+)$/);
+      if (attackMatch) return {instruction: {kind: 'attack_within', radius: Number(attackMatch[1])}};
+      if (upper === 'LOOP') return {instruction: {kind: 'loop'}};
+      const skipMatch = upper.match(/^SKIP(?: TO)? (\d+)$/);
+      if (skipMatch) return {instruction: {kind: 'skip', line: Number(skipMatch[1])}};
+      return {error: `Unknown command "${line}".`};
+    }
+
+    function stampSourceLine(instruction, sourceLine) {
+      instruction.sourceLine = sourceLine;
+      if (instruction.kind === 'if') stampSourceLine(instruction.then, sourceLine);
+    }
+
+    function resolveSkipTargets(instructions, errors) {
+      const sourceLineToProgramIndex = new Map();
+      instructions.forEach((instruction, index) => {
+        sourceLineToProgramIndex.set(instruction.sourceLine, index);
+      });
+      for (const instruction of instructions) resolveInstructionSkip(instruction, sourceLineToProgramIndex, errors);
+    }
+
+    function resolveInstructionSkip(instruction, sourceLineToProgramIndex, errors) {
+      if (instruction.kind === 'if') {
+        resolveInstructionSkip(instruction.then, sourceLineToProgramIndex, errors);
+        return;
+      }
+      if (instruction.kind !== 'skip') return;
+      if (!sourceLineToProgramIndex.has(instruction.line)) {
+        errors.push(`Line ${instruction.sourceLine}: SKIP target ${instruction.line} must be a line with a command.`);
+        return;
+      }
+      instruction.targetPc = sourceLineToProgramIndex.get(instruction.line);
+    }
+
+    function parseSense(text) {
+      const upper = text.toUpperCase().replace(/\s+/g, ' ').trim();
+      if (upper === 'CARRYING') return 'carrying';
+      if (upper === 'FOOD HERE') return 'food_here';
+      if (upper === 'FOOD TRAIL HERE') return 'food_trail_here';
+      if (upper === 'FOOD IS NEAR' || upper === 'FOOD NEARBY' || upper === 'SENSE IF FOOD IS NEAR') return 'food_is_near';
+      return null;
+    }
+
+    function draw() {
+      const tile = CANVAS_SIZE / GRID;
+      ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+      ctx.fillStyle = '#111810';
+      ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+
+      for (let y = 0; y < GRID; y += 1) {
+        for (let x = 0; x < GRID; x += 1) {
+          const px = x * tile;
+          const py = y * tile;
+          ctx.fillStyle = (x + y) % 2 ? '#152016' : '#18241a';
+          ctx.fillRect(px, py, tile, tile);
+          const cell = state.cells[y][x];
+          if (isActiveFoodTrail(cell.foodTrail)) drawFoodTrail(px, py, tile, cell.foodTrail);
+          activeFoodHereTeams(cell).forEach((team, index) => {
+            drawFoodHerePheromone(px, py, tile, cell.foodHereTicks[team], team, index);
+          });
+          const food = cell.food;
+          if (food > 0) drawFood(px, py, tile, food);
+        }
+      }
+
+      drawQueen(tile);
+      drawEnemyNest(tile);
+      drawGreenNest(tile);
+      const stacks = new Map();
+      for (const ant of state.ants) {
+        const key = pointKey(ant);
+        if (!stacks.has(key)) stacks.set(key, []);
+        stacks.get(key).push(ant);
+      }
+      for (const stack of stacks.values()) drawAntStack(stack, tile, '#d34843');
+      const enemyStacks = new Map();
+      for (const ant of state.enemyAnts) {
+        const key = pointKey(ant);
+        if (!enemyStacks.has(key)) enemyStacks.set(key, []);
+        enemyStacks.get(key).push(ant);
+      }
+      for (const stack of enemyStacks.values()) drawAntStack(stack, tile, '#5e92df');
+      const greenStacks = new Map();
+      for (const ant of state.greenAnts) {
+        const key = pointKey(ant);
+        if (!greenStacks.has(key)) greenStacks.set(key, []);
+        greenStacks.get(key).push(ant);
+      }
+      for (const stack of greenStacks.values()) drawAntStack(stack, tile, '#5bbf6a');
+      drawCombatEffects(tile);
+      drawQueenAttackEffects(tile);
+
+      ctx.strokeStyle = 'rgba(240, 234, 217, 0.08)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= GRID; i += 1) {
+        const p = i * tile;
+        ctx.beginPath();
+        ctx.moveTo(p, 0);
+        ctx.lineTo(p, CANVAS_SIZE);
+        ctx.moveTo(0, p);
+        ctx.lineTo(CANVAS_SIZE, p);
+        ctx.stroke();
+      }
+      drawWinnerBanner();
+    }
+
+    function drawWinnerBanner() {
+      if (!state.winner) return;
+      ctx.fillStyle = 'rgba(17, 24, 16, 0.86)';
+      ctx.fillRect(CANVAS_SIZE * 0.18, CANVAS_SIZE * 0.42, CANVAS_SIZE * 0.64, CANVAS_SIZE * 0.16);
+      ctx.strokeStyle = teamColor(state.winner);
+      ctx.lineWidth = 4;
+      ctx.strokeRect(CANVAS_SIZE * 0.18, CANVAS_SIZE * 0.42, CANVAS_SIZE * 0.64, CANVAS_SIZE * 0.16);
+      ctx.fillStyle = '#f0ead9';
+      ctx.font = '900 38px Inter, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(winnerLabel(), CANVAS_SIZE / 2, CANVAS_SIZE / 2);
+    }
+
+    function drawFood(px, py, tile, amount) {
+      ctx.fillStyle = '#77d66f';
+      ctx.beginPath();
+      ctx.arc(px + tile / 2, py + tile / 2, Math.max(3, Math.min(tile * 0.32, 3 + amount * 0.35)), 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function drawFoodHerePheromone(px, py, tile, ticksLeft, team, index) {
+      const opacity = 0.18 + 0.68 * (ticksLeft / FOOD_HERE_MARK_TICKS);
+      ctx.strokeStyle = teamRgba(team, opacity);
+      ctx.lineWidth = Math.max(2, tile * 0.1);
+      ctx.beginPath();
+      ctx.arc(px + tile / 2, py + tile / 2, tile * (0.3 + index * 0.08), 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    function drawFoodTrail(px, py, tile, trail) {
+      const center = {x: px + tile / 2, y: py + tile / 2};
+      const opacity = 0.2 + 0.8 * (trail.ticks / FOOD_TRAIL_MARK_TICKS);
+      drawTrailArrow(center, tile, trail.toFood, teamRgba(trail.owner, opacity), 0.28);
+      drawTrailArrow(center, tile, trail.toBase, teamRgba(trail.owner, opacity * 0.82), -0.28);
+    }
+
+    function drawTrailArrow(center, tile, dirIndex, color, sideOffset) {
+      const dir = DIRS[dirIndex];
+      const side = {x: -dir.dy, y: dir.dx};
+      const start = {
+        x: center.x - dir.dx * tile * 0.24 + side.x * tile * sideOffset,
+        y: center.y - dir.dy * tile * 0.24 + side.y * tile * sideOffset,
+      };
+      const end = {
+        x: center.x + dir.dx * tile * 0.3 + side.x * tile * sideOffset,
+        y: center.y + dir.dy * tile * 0.3 + side.y * tile * sideOffset,
+      };
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
+      ctx.lineWidth = Math.max(2, tile * 0.08);
+      ctx.beginPath();
+      ctx.moveTo(start.x, start.y);
+      ctx.lineTo(end.x, end.y);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(end.x, end.y);
+      ctx.lineTo(end.x - dir.dx * tile * 0.14 + side.x * tile * 0.08, end.y - dir.dy * tile * 0.14 + side.y * tile * 0.08);
+      ctx.lineTo(end.x - dir.dx * tile * 0.14 - side.x * tile * 0.08, end.y - dir.dy * tile * 0.14 - side.y * tile * 0.08);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    function drawQueen(tile) {
+      const x = state.queen.x * tile + tile / 2;
+      const y = state.queen.y * tile + tile / 2;
+      ctx.fillStyle = teamColor('colony');
+      ctx.strokeStyle = '#f0ead9';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(x, y, tile * 0.42, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#120f0f';
+      ctx.font = `900 ${Math.floor(tile * 0.48)}px Georgia, serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('R', x, y + 1);
+      drawNestHp(x, y, tile, state.queenHp);
+    }
+
+    function drawEnemyNest(tile) {
+      const x = state.enemyNest.x * tile + tile / 2;
+      const y = state.enemyNest.y * tile + tile / 2;
+      ctx.fillStyle = '#5e92df';
+      ctx.strokeStyle = '#f0ead9';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(x, y, tile * 0.42, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#07101f';
+      ctx.font = `900 ${Math.floor(tile * 0.48)}px Georgia, serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('B', x, y + 1);
+      drawNestHp(x, y, tile, state.enemyNestHp);
+    }
+
+    function drawGreenNest(tile) {
+      const x = state.greenNest.x * tile + tile / 2;
+      const y = state.greenNest.y * tile + tile / 2;
+      ctx.fillStyle = '#5bbf6a';
+      ctx.strokeStyle = '#f0ead9';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(x, y, tile * 0.42, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#07140b';
+      ctx.font = `900 ${Math.floor(tile * 0.48)}px Georgia, serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('G', x, y + 1);
+      drawNestHp(x, y, tile, state.greenQueenHp);
+    }
+
+    function drawNestHp(x, y, tile, hp) {
+      ctx.fillStyle = '#f0ead9';
+      ctx.font = `800 ${Math.max(8, Math.floor(tile * 0.24))}px Inter, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(String(Math.max(0, hp)), x, y + tile * 0.56);
+    }
+
+    function drawCombatEffects(tile) {
+      const ants = allAnts();
+      for (let i = 0; i < ants.length; i += 1) {
+        for (let j = i + 1; j < ants.length; j += 1) {
+          const ant = ants[i];
+          const enemy = ants[j];
+          if (ant.team === enemy.team || distance(ant, enemy) !== 1 || (!ant.attack && !enemy.attack)) continue;
+          const ax = ant.x * tile + tile / 2;
+          const ay = ant.y * tile + tile / 2;
+          const bx = enemy.x * tile + tile / 2;
+          const by = enemy.y * tile + tile / 2;
+          const cx = (ax + bx) / 2;
+          const cy = (ay + by) / 2;
+          ctx.strokeStyle = '#ffec7a';
+          ctx.lineWidth = Math.max(3, tile * 0.13);
+          ctx.beginPath();
+          ctx.moveTo(ax, ay);
+          ctx.lineTo(bx, by);
+          ctx.stroke();
+          ctx.strokeStyle = '#ff5d5d';
+          ctx.lineWidth = Math.max(2, tile * 0.08);
+          ctx.beginPath();
+          ctx.moveTo(cx - tile * 0.24, cy - tile * 0.24);
+          ctx.lineTo(cx + tile * 0.24, cy + tile * 0.24);
+          ctx.moveTo(cx + tile * 0.24, cy - tile * 0.24);
+          ctx.lineTo(cx - tile * 0.24, cy + tile * 0.24);
+          ctx.stroke();
+        }
+      }
+    }
+
+    function drawQueenAttackEffects(tile) {
+      drawNestAttackEffects(state.queen, enemyAntsFor('colony'), tile, '#ffd35d');
+      drawNestAttackEffects(state.enemyNest, enemyAntsFor('enemy'), tile, '#79b3ff');
+      drawNestAttackEffects(state.greenNest, enemyAntsFor('green'), tile, '#8dff9d');
+    }
+
+    function drawNestAttackEffects(nest, targets, tile, color) {
+      const nx = nest.x * tile + tile / 2;
+      const ny = nest.y * tile + tile / 2;
+      const adjacentTargets = targets.filter(target => distance(target, nest) === 1);
+      if (!adjacentTargets.length) return;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = Math.max(2, tile * 0.1);
+      for (const target of adjacentTargets) {
+        const tx = target.x * tile + tile / 2;
+        const ty = target.y * tile + tile / 2;
+        ctx.beginPath();
+        ctx.moveTo(nx, ny);
+        ctx.lineTo(tx, ty);
+        ctx.stroke();
+      }
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = Math.max(2, tile * 0.08);
+      ctx.beginPath();
+      ctx.arc(nx, ny, tile * 0.52, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+
+    function drawAntStack(stack, tile, color) {
+      const ant = stack[0];
+      const x = ant.x * tile + tile / 2;
+      const y = ant.y * tile + tile / 2;
+      const dir = DIRS[ant.dir];
+      const side = {x: -dir.dy, y: dir.dx};
+      const nose = {x: x + dir.dx * tile * 0.34, y: y + dir.dy * tile * 0.34};
+      const left = {x: x - dir.dx * tile * 0.22 + side.x * tile * 0.24, y: y - dir.dy * tile * 0.22 + side.y * tile * 0.24};
+      const right = {x: x - dir.dx * tile * 0.22 - side.x * tile * 0.24, y: y - dir.dy * tile * 0.22 - side.y * tile * 0.24};
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.moveTo(nose.x, nose.y);
+      ctx.lineTo(left.x, left.y);
+      ctx.lineTo(right.x, right.y);
+      ctx.closePath();
+      ctx.fill();
+
+      if (ant.attack) {
+        ctx.strokeStyle = '#ff8a7d';
+        ctx.lineWidth = Math.max(2, tile * 0.08);
+        ctx.beginPath();
+        ctx.arc(x, y, tile * 0.42, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      if (ant.berserkTarget) {
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = Math.max(2, tile * 0.06);
+        ctx.beginPath();
+        ctx.arc(x, y, tile * 0.54, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      const carrying = stack.filter(item => item.carrying).length;
+      if (carrying > 0) {
+        ctx.fillStyle = '#77d66f';
+        ctx.beginPath();
+        ctx.arc(x, y, tile * 0.13, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      if (stack.length > 1) {
+        ctx.fillStyle = '#f0ead9';
+        ctx.strokeStyle = '#120f0f';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(x + tile * 0.25, y - tile * 0.24, tile * 0.2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = '#120f0f';
+        ctx.font = `800 ${Math.max(8, Math.floor(tile * 0.25))}px Inter, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(String(stack.length), x + tile * 0.25, y - tile * 0.24 + 0.5);
+      }
+
+      if (ant.hp < ANT_MAX_HP) {
+        ctx.fillStyle = '#f0ead9';
+        ctx.font = `800 ${Math.max(8, Math.floor(tile * 0.24))}px Inter, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(String(Math.max(0, ant.hp)), x, y + tile * 0.32);
+      }
+    }
+
+    function updateStats() {
+      tickCount.textContent = state.tick;
+      redFoodDelivered.textContent = state.redDelivered;
+      blueFoodDelivered.textContent = state.blueDelivered;
+      greenFoodDelivered.textContent = state.greenDelivered;
+      redAntCount.textContent = state.ants.length;
+      blueAntCount.textContent = state.enemyAnts.length;
+      greenAntCount.textContent = state.greenAnts.length;
+      redCarryingCount.textContent = carryingForTeam('colony');
+      blueCarryingCount.textContent = carryingForTeam('enemy');
+      greenCarryingCount.textContent = carryingForTeam('green');
+      foodLeft.textContent = totalFoodLeft();
+      redQueenHp.textContent = state.queenHp;
+      blueQueenHp.textContent = state.enemyNestHp;
+      greenQueenHp.textContent = state.greenQueenHp;
+      redQueenStatus.textContent = queenStatusLabel('colony');
+      blueQueenStatus.textContent = queenStatusLabel('enemy');
+      greenQueenStatus.textContent = queenStatusLabel('green');
+      gameStatus.textContent = winnerLabel();
+      updateDiagnostics();
+      updateRuleStats();
+    }
+
+    function carryingForTeam(team) {
+      return teamAnts(team).filter(ant => ant.carrying).length;
+    }
+
+    function updateDiagnostics() {
+      const diagnostics = getDiagnostics();
+      diagFoodRate.textContent = diagnostics.foodRate;
+      diagPickups.textContent = diagnostics.pickups;
+      diagLastDelivery.textContent = diagnostics.lastDelivery;
+      diagMoveSuccess.textContent = diagnostics.moveSuccess;
+      diagBlockedMoves.textContent = diagnostics.blockedMoves;
+      diagIdleCommands.textContent = diagnostics.idleCommands;
+      diagFoodHereMarks.textContent = diagnostics.foodHereMarks;
+      diagTrailCells.textContent = diagnostics.trailCells;
+      diagTrailLife.textContent = diagnostics.trailLife;
+      diagHatchedAnts.textContent = diagnostics.hatchedAnts;
+      diagTrailsLaid.textContent = diagnostics.trailsLaid;
+      diagTrailFollows.textContent = diagnostics.trailFollows;
+      diagTrailExpired.textContent = diagnostics.trailExpired;
+      diagAttackMarks.textContent = diagnostics.attackMarks;
+      diagCombatDamage.textContent = diagnostics.combatDamage;
+      diagQueenDamageTaken.textContent = diagnostics.queenDamageTaken;
+      diagQueenMoves.textContent = diagnostics.queenMoves;
+      diagQueenBirths.textContent = diagnostics.queenBirths;
+      diagEmergencyBirths.textContent = diagnostics.emergencyBirths;
+      diagBerserkAnts.textContent = diagnostics.berserkAnts;
+      diagKilled.textContent = diagnostics.killed;
+    }
+
+    function getDiagnostics() {
+      const cells = state.cells.flat();
+      const trailCells = cells.filter(cell => isActiveFoodTrail(cell.foodTrail));
+      const foodHereMarks = cells.reduce((total, cell) => total + activeFoodHereTeams(cell).length, 0);
+      const totalTrailTicks = trailCells.reduce((total, cell) => total + cell.foodTrail.ticks, 0);
+      const trailLife = trailCells.length ? Math.round(100 * totalTrailTicks / (trailCells.length * FOOD_TRAIL_MARK_TICKS)) : 0;
+      const metrics = state.metrics;
+      const moveSuccess = metrics.moveAttempts ? Math.round(100 * metrics.successfulMoves / metrics.moveAttempts) : 0;
+      const foodRate = state.tick ? (state.delivered * 100 / state.tick).toFixed(2) : '0.00';
+      const lastDelivery = metrics.lastDeliveryTick === null ? 'never' : `${state.tick - metrics.lastDeliveryTick} ticks ago`;
+      return {
+        foodRate,
+        pickups: formatNumber(metrics.pickups),
+        lastDelivery,
+        moveSuccess: `${moveSuccess}%`,
+        blockedMoves: formatNumber(metrics.blockedMoves),
+        idleCommands: formatNumber(metrics.idleCommands),
+        foodHereMarks: formatNumber(foodHereMarks),
+        trailCells: formatNumber(trailCells.length),
+        trailLife: `${trailLife}%`,
+        hatchedAnts: formatNumber(metrics.hatchedAnts),
+        trailsLaid: `${formatNumber(metrics.trailsLaid)} / ${formatNumber(metrics.trailsRenewed)}`,
+        trailFollows: `${formatNumber(metrics.trailFollowsToFood)} food / ${formatNumber(metrics.trailFollowsToBase)} base`,
+        trailExpired: `${formatNumber(metrics.trailExpiredBeforeFoodDepleted)} / ${formatNumber(metrics.trailExpired)}`,
+        attackMarks: formatNumber(metrics.attackMarks),
+        combatDamage: formatNumber(metrics.combatDamage),
+        queenDamageTaken: `${formatNumber(metrics.redQueenDamageTaken)} / ${formatNumber(metrics.blueQueenDamageTaken)} / ${formatNumber(metrics.greenQueenDamageTaken)}`,
+        queenMoves: `${formatNumber(metrics.redQueenMoves)} / ${formatNumber(metrics.blueQueenMoves)} / ${formatNumber(metrics.greenQueenMoves)}`,
+        queenBirths: `${formatNumber(metrics.redQueenBirths)} / ${formatNumber(metrics.blueQueenBirths)} / ${formatNumber(metrics.greenQueenBirths)}`,
+        emergencyBirths: `${formatNumber(metrics.redEmergencyBirths)} / ${formatNumber(metrics.blueEmergencyBirths)} / ${formatNumber(metrics.greenEmergencyBirths)}`,
+        berserkAnts: `${formatNumber(allAnts().filter(ant => ant.berserkTarget).length)} (${formatNumber(metrics.berserkTriggers)} triggers)`,
+        killed: `${formatNumber(metrics.redKilled)} / ${formatNumber(metrics.blueKilled)} / ${formatNumber(metrics.greenKilled)}`,
+      };
+    }
+
+    function totalFoodLeft() {
+      return state.cells.flat().reduce((total, cell) => total + cell.food, 0);
+    }
+
+    function formatNumber(value) {
+      return String(value);
+    }
+
+    function updateRuleStats() {
+      const cells = state.cells.flat();
+      const activeFoodSources = cells.filter(cell => cell.food > 0).length;
+      ruleGrid.textContent = `${GRID} x ${GRID}`;
+      ruleStartAnts.textContent = START_ANTS;
+      ruleEnemyAnts.textContent = START_ENEMY_ANTS;
+      ruleGreenAnts.textContent = START_GREEN_ANTS;
+      ruleFoodSources.textContent = FOOD_PILES;
+      ruleFoodPerSource.textContent = FOOD_PER_PILE;
+      ruleStartingFood.textContent = FOOD_PILES * FOOD_PER_PILE;
+      ruleFoodPerHatch.textContent = FOOD_PER_NEW_ANT;
+      ruleAntHp.textContent = ANT_MAX_HP;
+      ruleQueenHp.textContent = QUEEN_MAX_HP;
+      ruleCombatRate.textContent = `1 damage / ${COMBAT_DAMAGE_INTERVAL} ticks`;
+      ruleQueenDamageRate.textContent = '1 HP / adjacent enemy / tick';
+      ruleQueenMoveRate.textContent = `1 queen / ${QUEEN_MOVE_INTERVAL} ticks`;
+      ruleQueenCenterStepRate.textContent = `all queens / ${ALL_QUEEN_CENTER_STEP_INTERVAL} ticks`;
+      ruleQueenBirthRate.textContent = `1 ant / queen / ${QUEEN_BIRTH_INTERVAL} ticks`;
+      ruleQueenDefenseRadius.textContent = QUEEN_DEFENSE_RADIUS;
+      ruleFoodSenseRadius.textContent = FOOD_SENSE_RADIUS;
+      ruleFoodHereLife.textContent = `${FOOD_HERE_MARK_TICKS} ticks`;
+      ruleFoodTrailLife.textContent = `${FOOD_TRAIL_MARK_TICKS} ticks`;
+      ruleReturnSlowdown.textContent = `${RETURN_HOME_MOVE_INTERVAL}x`;
+      ruleTickDuration.textContent = `${TICK_MS} ms`;
+      ruleRedNest.textContent = pointLabel(state.queen);
+      ruleBlueNest.textContent = pointLabel(state.enemyNest);
+      ruleGreenNest.textContent = pointLabel(state.greenNest);
+      ruleActiveFoodSources.textContent = activeFoodSources;
+      ruleDepletedFoodSources.textContent = FOOD_PILES - activeFoodSources;
+      ruleNextHatchAt.textContent = `R ${state.nextRedHatchAt} / B ${state.nextBlueHatchAt} / G ${state.nextGreenHatchAt}`;
+      ruleTotalAnts.textContent = allAnts().length;
+    }
+
+    function pointLabel(point) {
+      return `${point.x}, ${point.y}`;
+    }
+
+    function nearbySpots(center, radius) {
+      const points = [];
+      for (let dy = -radius; dy <= radius; dy += 1) {
+        for (let dx = -radius; dx <= radius; dx += 1) {
+          const point = {x: center.x + dx, y: center.y + dy};
+          if (inBounds(point.x, point.y)) points.push(point);
+        }
+      }
+      return shuffled(points);
+    }
+
+    function neighbors(point) {
+      return DIRS.map(dir => ({x: point.x + dir.dx, y: point.y + dir.dy}));
+    }
+
+    function stepInDirection(point, dirIndex) {
+      const dir = DIRS[dirIndex];
+      return {x: point.x + dir.dx, y: point.y + dir.dy};
+    }
+
+    function aheadOf(ant) {
+      const dir = DIRS[ant.dir];
+      return {x: ant.x + dir.dx, y: ant.y + dir.dy};
+    }
+
+    function oppositeDirection(dirIndex) {
+      return (dirIndex + 2) % DIRS.length;
+    }
+
+    function directionBetween(from, to) {
+      const dx = to.x - from.x;
+      const dy = to.y - from.y;
+      if (dx === 1) return 1;
+      if (dx === -1) return 3;
+      if (dy === 1) return 2;
+      return 0;
+    }
+
+    function shuffled(items) {
+      const copy = [...items];
+      for (let i = copy.length - 1; i > 0; i -= 1) {
+        const j = randomInt(i + 1);
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+      return copy;
+    }
+
+    function randomInt(max) {
+      return Math.floor(Math.random() * max);
+    }
+
+    function pointKey(point) {
+      return `${point.x},${point.y}`;
+    }
+
+    function samePoint(a, b) {
+      return a.x === b.x && a.y === b.y;
+    }
+
+    function isNestPoint(point) {
+      return allQueens().some(queen => samePoint(point, queen.point));
+    }
+
+    function distance(a, b) {
+      return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+    }
+
+    function inBounds(x, y) {
+      return x >= 0 && y >= 0 && x < GRID && y < GRID;
+    }
+
+    runBtn.addEventListener('click', run);
+    pauseBtn.addEventListener('click', stop);
+    resetBtn.addEventListener('click', () => {
+      stop();
+      reset();
+    });
+    applyBrainBtn.addEventListener('click', compileBrains);
+    redBrainCode.addEventListener('input', () => updateLineNumbers(redBrainCode, redLineNumbers));
+    blueBrainCode.addEventListener('input', () => updateLineNumbers(blueBrainCode, blueLineNumbers));
+    greenBrainCode.addEventListener('input', () => updateLineNumbers(greenBrainCode, greenLineNumbers));
+    redBrainCode.addEventListener('scroll', () => {
+      redLineNumbers.scrollTop = redBrainCode.scrollTop;
+    });
+    blueBrainCode.addEventListener('scroll', () => {
+      blueLineNumbers.scrollTop = blueBrainCode.scrollTop;
+    });
+    greenBrainCode.addEventListener('scroll', () => {
+      greenLineNumbers.scrollTop = greenBrainCode.scrollTop;
+    });
+    copyBrainBtn.addEventListener('click', async () => {
+      await navigator.clipboard.writeText(redBrainCode.value);
+      copyBrainBtn.textContent = 'Copied';
+      setTimeout(() => {
+        copyBrainBtn.textContent = 'Copy Red';
+      }, 900);
+    });
+    speedSlider.addEventListener('input', () => {
+      speedLabel.textContent = `${speedSlider.value}x`;
+      if (timer) run();
+    });
+
+    function updateLineNumbers(textarea, lineNumbers) {
+      const count = textarea.value.split('\n').length;
+      lineNumbers.textContent = Array.from({length: count}, (_, index) => index + 1).join('\n');
+      lineNumbers.scrollTop = textarea.scrollTop;
+    }
+
+    updateLineNumbers(redBrainCode, redLineNumbers);
+    updateLineNumbers(blueBrainCode, blueLineNumbers);
+    updateLineNumbers(greenBrainCode, greenLineNumbers);
+    reset();
+  </script>
+</body>
+</html>

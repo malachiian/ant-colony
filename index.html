@@ -161,6 +161,8 @@
     }
 
     .ant-count {
+      display: grid;
+      gap: 8px;
       min-width: 0;
       padding: 10px 8px;
       background: var(--panel-soft);
@@ -176,22 +178,35 @@
       letter-spacing: 0.06em;
     }
 
-    .ant-count strong {
+    .ant-count .ant-total {
       display: block;
       margin-top: 5px;
       font-size: 30px;
       line-height: 1;
     }
 
-    .ant-count.red strong {
+    .queen-health {
+      padding-top: 7px;
+      border-top: 1px solid rgba(240, 234, 217, 0.12);
+    }
+
+    .queen-health strong {
+      display: block;
+      margin-top: 3px;
+      color: var(--text);
+      font-size: 16px;
+      line-height: 1;
+    }
+
+    .ant-count.red .ant-total {
       color: var(--ant);
     }
 
-    .ant-count.blue strong {
+    .ant-count.blue .ant-total {
       color: var(--blue);
     }
 
-    .ant-count.green strong {
+    .ant-count.green .ant-total {
       color: var(--green);
     }
 
@@ -449,9 +464,18 @@
         <section class="stat-panel">
           <div class="stats-heading">Ants</div>
           <div class="ant-count-grid">
-            <div class="ant-count red"><span>Red</span><strong id="redAntCount">6</strong></div>
-            <div class="ant-count blue"><span>Blue</span><strong id="blueAntCount">6</strong></div>
-            <div class="ant-count green"><span>Green</span><strong id="greenAntCount">6</strong></div>
+            <div class="ant-count red">
+              <div><span>Red Ants</span><strong id="redAntCount" class="ant-total">6</strong></div>
+              <div class="queen-health"><span>Queen HP</span><strong id="redQueenHp">100</strong></div>
+            </div>
+            <div class="ant-count blue">
+              <div><span>Blue Ants</span><strong id="blueAntCount" class="ant-total">6</strong></div>
+              <div class="queen-health"><span>Queen HP</span><strong id="blueQueenHp">100</strong></div>
+            </div>
+            <div class="ant-count green">
+              <div><span>Green Ants</span><strong id="greenAntCount" class="ant-total">6</strong></div>
+              <div class="queen-health"><span>Queen HP</span><strong id="greenQueenHp">100</strong></div>
+            </div>
           </div>
         </section>
         <section class="stat-panel">
@@ -466,9 +490,6 @@
             <div class="stat"><span>Red Carrying</span><strong id="redCarryingCount">0</strong></div>
             <div class="stat"><span>Blue Carrying</span><strong id="blueCarryingCount">0</strong></div>
             <div class="stat"><span>Green Carrying</span><strong id="greenCarryingCount">0</strong></div>
-            <div class="stat"><span>Red Queen HP</span><strong id="redQueenHp">40</strong></div>
-            <div class="stat"><span>Blue Queen HP</span><strong id="blueQueenHp">40</strong></div>
-            <div class="stat"><span>Green Queen HP</span><strong id="greenQueenHp">40</strong></div>
             <div class="stat"><span>Red Queen Status</span><strong id="redQueenStatus">Defended</strong></div>
             <div class="stat"><span>Blue Queen Status</span><strong id="blueQueenStatus">Defended</strong></div>
             <div class="stat"><span>Green Queen Status</span><strong id="greenQueenStatus">Defended</strong></div>

@@ -585,6 +585,7 @@
 
 ATTACK WITHIN 6
 ATTACK MARKED WITHIN 5
+IF CARRYING THEN FOLLOW FOOD TRAIL TO BASE
 IF CARRYING THEN LAY FOOD TRAIL
 IF CARRYING THEN RETURN HOME
 IF CARRYING THEN SKIP TO 4
@@ -605,6 +606,7 @@ LOOP</textarea>
 
 ATTACK WITHIN 6
 ATTACK MARKED WITHIN 5
+IF CARRYING THEN FOLLOW FOOD TRAIL TO BASE
 IF CARRYING THEN LAY FOOD TRAIL
 IF CARRYING THEN RETURN HOME
 IF CARRYING THEN SKIP TO 4
@@ -625,6 +627,7 @@ LOOP</textarea>
 
 ATTACK WITHIN 6
 ATTACK MARKED WITHIN 5
+IF CARRYING THEN FOLLOW FOOD TRAIL TO BASE
 IF CARRYING THEN LAY FOOD TRAIL
 IF CARRYING THEN RETURN HOME
 IF CARRYING THEN SKIP TO 4
@@ -641,11 +644,11 @@ LOOP</textarea>
       <div id="brainStatus" class="brain-status">Brain ready.</div>
       <div class="command-reference" aria-label="Available brain commands">
         <div class="command"><code># comment</code>Ignored note line for explaining the brain.</div>
-        <div class="command"><code>RETURN HOME</code>Move one tile closer to that ant team's queen. While carrying food, base-bound movement is five times slower.</div>
+        <div class="command"><code>RETURN HOME</code>Find a way one tile closer to that ant team's queen. While carrying food, this is ten times slower and automatically lays a FOOD TRAIL.</div>
         <div class="command"><code>PICKUP</code>Pick up one food from the current tile.</div>
         <div class="command"><code>LAY FOOD TRAIL</code>While carrying food, mark the current tile with FOOD TRAIL directions. The mark lasts 1000 ticks and renews when laid again.</div>
         <div class="command"><code>FOLLOW FOOD TRAIL TO FOOD</code>Follow a FOOD TRAIL marker in its food direction.</div>
-        <div class="command"><code>FOLLOW FOOD TRAIL TO BASE</code>Follow a FOOD TRAIL marker in its base direction. While carrying food, base-bound movement is five times slower.</div>
+        <div class="command"><code>FOLLOW FOOD TRAIL TO BASE</code>Follow a FOOD TRAIL marker in its base direction. Successful carried-food deliveries over base trails improve that team's trail speed by 10%.</div>
         <div class="command"><code>MOVE TO FOOD</code>Move toward that team's discovered FOOD HERE pheromone within three tiles.</div>
         <div class="command"><code>EXPLORE</code>Wander through valid grid tiles while searching for food.</div>
         <div class="command"><code>ATTACK WITHIN X</code>Mark enemy ants within X squares of this team's nest with ATTACK. Adjacent marked enemies start combat.</div>
@@ -684,6 +687,8 @@ LOOP</textarea>
         <div class="rule-stat"><span>FOOD HERE Lifetime</span><strong id="ruleFoodHereLife">0 ticks</strong></div>
         <div class="rule-stat"><span>FOOD TRAIL Lifetime</span><strong id="ruleFoodTrailLife">0 ticks</strong></div>
         <div class="rule-stat"><span>Base Return Slowdown</span><strong id="ruleReturnSlowdown">0x</strong></div>
+        <div class="rule-stat"><span>Trail Delivery Speed Gain</span><strong id="ruleTrailSpeedGain">0%</strong></div>
+        <div class="rule-stat"><span>Trail Speed Bonus R / B / G</span><strong id="ruleTrailSpeedBonus">0% / 0% / 0%</strong></div>
         <div class="rule-stat"><span>Tick Duration</span><strong id="ruleTickDuration">0 ms</strong></div>
         <div class="rule-stat"><span>Red Nest</span><strong id="ruleRedNest">0,0</strong></div>
         <div class="rule-stat"><span>Blue Nest</span><strong id="ruleBlueNest">0,0</strong></div>
@@ -707,7 +712,8 @@ LOOP</textarea>
     const FOOD_SENSE_RADIUS = 3;
     const FOOD_HERE_MARK_TICKS = 2000;
     const FOOD_TRAIL_MARK_TICKS = 1000;
-    const RETURN_HOME_MOVE_INTERVAL = 5;
+    const RETURN_HOME_MOVE_INTERVAL = 10;
+    const TRAIL_DELIVERY_SPEED_BONUS = 0.1;
     const FOOD_PER_NEW_ANT = 5;
     const ANT_MAX_HP = 5;
     const QUEEN_MAX_HP = 100;
@@ -809,6 +815,8 @@ LOOP</textarea>
     const ruleFoodHereLife = document.querySelector('#ruleFoodHereLife');
     const ruleFoodTrailLife = document.querySelector('#ruleFoodTrailLife');
     const ruleReturnSlowdown = document.querySelector('#ruleReturnSlowdown');
+    const ruleTrailSpeedGain = document.querySelector('#ruleTrailSpeedGain');
+    const ruleTrailSpeedBonus = document.querySelector('#ruleTrailSpeedBonus');
     const ruleTickDuration = document.querySelector('#ruleTickDuration');
     const ruleRedNest = document.querySelector('#ruleRedNest');
     const ruleBlueNest = document.querySelector('#ruleBlueNest');
@@ -943,6 +951,8 @@ LOOP</textarea>
         trailsRenewed: 0,
         trailFollowsToFood: 0,
         trailFollowsToBase: 0,
+        trailDeliveries: 0,
+        trailSpeedBonus: 0,
         trailExpired: 0,
         trailExpiredBeforeFoodDepleted: 0,
         hatchedAnts: 0,
@@ -1106,16 +1116,24 @@ LOOP</textarea>
 
     function maybeDeliver(ant) {
       if (!ant.carrying || distance(ant, homeNest(ant)) > 1) return;
+      if (ant.usedBaseTrail) improveTrailSpeed(ant.team);
       ant.carrying = false;
       ant.mode = 'explore';
       ant.trailTarget = null;
       ant.foodSource = null;
       ant.returnMoveCharge = 0;
+      ant.usedBaseTrail = false;
       state.delivered += 1;
       setDelivered(ant.team, deliveredForTeam(ant.team) + 1);
       state.metrics.lastDeliveryTick = state.tick;
       teamMetrics(ant.team).lastDeliveryTick = state.tick;
       hatchAntsIfReady(ant.team);
+    }
+
+    function improveTrailSpeed(team) {
+      const metrics = teamMetrics(team);
+      metrics.trailDeliveries += 1;
+      metrics.trailSpeedBonus += TRAIL_DELIVERY_SPEED_BONUS;
     }
 
     function hatchAntsIfReady(team) {
@@ -1182,6 +1200,7 @@ LOOP</textarea>
         trailTarget: null,
         foodSource: null,
         returnMoveCharge: 0,
+        usedBaseTrail: false,
         berserkTarget: null,
         pc: 0,
       };
@@ -1645,6 +1664,7 @@ LOOP</textarea>
       ant.trailTarget = null;
       ant.foodSource = {x: ant.x, y: ant.y};
       ant.returnMoveCharge = 0;
+      ant.usedBaseTrail = false;
       state.metrics.pickups += 1;
       teamMetrics(ant.team).pickups += 1;
     }
@@ -1776,18 +1796,27 @@ LOOP</textarea>
     function followFoodTrailTarget(ant, direction) {
       const trail = state.cells[ant.y][ant.x].foodTrail;
       if (!isTeamFoodTrail(trail, ant.team)) return null;
-      if (direction === 'base' && !returnMoveReady(ant)) return null;
+      if (direction === 'base' && !returnMoveReady(ant, trailReturnMoveInterval(ant.team))) return null;
       const dirIndex = direction === 'base' ? trail.toBase : trail.toFood;
       const target = stepInDirection(ant, dirIndex);
       if (!inBounds(target.x, target.y) || isNestPoint(target)) return null;
       if (direction === 'base') {
         state.metrics.trailFollowsToBase += 1;
         teamMetrics(ant.team).trailFollowsToBase += 1;
+        if (ant.carrying) ant.usedBaseTrail = true;
       } else {
         state.metrics.trailFollowsToFood += 1;
         teamMetrics(ant.team).trailFollowsToFood += 1;
       }
       return target;
+    }
+
+    function trailReturnMoveInterval(team) {
+      return Math.max(1, Math.round(RETURN_HOME_MOVE_INTERVAL / trailSpeedMultiplier(team)));
+    }
+
+    function trailSpeedMultiplier(team) {
+      return 1 + teamMetrics(team).trailSpeedBonus;
     }
 
     function isTeamFoodTrail(trail, team) {
@@ -1871,7 +1900,8 @@ LOOP</textarea>
     }
 
     function returnHomeTarget(ant) {
-      if (!returnMoveReady(ant)) return null;
+      if (ant.carrying && !ant.trailTarget) layFoodTrail(ant);
+      if (!returnMoveReady(ant, RETURN_HOME_MOVE_INTERVAL)) return null;
       if (ant.trailTarget && distance(ant, ant.trailTarget) === 1 && !isNestPoint(ant.trailTarget)) {
         const target = ant.trailTarget;
         ant.trailTarget = null;
@@ -1881,10 +1911,10 @@ LOOP</textarea>
       return stepTowardHome(ant);
     }
 
-    function returnMoveReady(ant) {
+    function returnMoveReady(ant, interval = RETURN_HOME_MOVE_INTERVAL) {
       if (!ant.carrying) return true;
       ant.returnMoveCharge = (ant.returnMoveCharge || 0) + 1;
-      if (ant.returnMoveCharge < RETURN_HOME_MOVE_INTERVAL) return false;
+      if (ant.returnMoveCharge < interval) return false;
       ant.returnMoveCharge = 0;
       return true;
     }
@@ -2395,6 +2425,7 @@ LOOP</textarea>
         hatchedAnts: formatNumber(metrics.hatchedAnts),
         trailsLaid: `${formatNumber(metrics.trailsLaid)} / ${formatNumber(metrics.trailsRenewed)}`,
         trailFollows: `${formatNumber(metrics.trailFollowsToFood)} food / ${formatNumber(metrics.trailFollowsToBase)} base`,
+        trailSpeed: `${formatPercent(metrics.trailSpeedBonus)} (${formatNumber(metrics.trailDeliveries)} deliveries)`,
         trailExpired: `${formatNumber(metrics.trailExpiredBeforeFoodDepleted)} / ${formatNumber(metrics.trailExpired)}`,
         attackMarks: formatNumber(metrics.attackMarks),
         combatDamage: formatNumber(metrics.combatDamage),
@@ -2460,6 +2491,7 @@ LOOP</textarea>
         `- Avg trail life: ${diagnostics.trailLife}`,
         `- Trails laid / renewed: ${diagnostics.trailsLaid}`,
         `- Trail follows: ${diagnostics.trailFollows}`,
+        `- Trail speed bonus: ${diagnostics.trailSpeed}`,
         `- Trail expired before food depleted / total expired: ${diagnostics.trailExpired}`,
         `- Hatched ants: ${diagnostics.hatchedAnts}`,
         `- Queen births: ${diagnostics.queenBirths}`,
@@ -2561,6 +2593,10 @@ LOOP</textarea>
       return String(value);
     }
 
+    function formatPercent(value) {
+      return `${Math.round(value * 100)}%`;
+    }
+
     function updateRuleStats() {
       const cells = state.cells.flat();
       const activeFoodSources = cells.filter(cell => cell.food > 0).length;
@@ -2584,6 +2620,8 @@ LOOP</textarea>
       ruleFoodHereLife.textContent = `${FOOD_HERE_MARK_TICKS} ticks`;
       ruleFoodTrailLife.textContent = `${FOOD_TRAIL_MARK_TICKS} ticks`;
       ruleReturnSlowdown.textContent = `${RETURN_HOME_MOVE_INTERVAL}x`;
+      ruleTrailSpeedGain.textContent = `${formatPercent(TRAIL_DELIVERY_SPEED_BONUS)} / trail delivery`;
+      ruleTrailSpeedBonus.textContent = `R ${formatPercent(teamMetrics('colony').trailSpeedBonus)} / B ${formatPercent(teamMetrics('enemy').trailSpeedBonus)} / G ${formatPercent(teamMetrics('green').trailSpeedBonus)}`;
       ruleTickDuration.textContent = `${TICK_MS} ms`;
       ruleRedNest.textContent = pointLabel(state.queen);
       ruleBlueNest.textContent = pointLabel(state.enemyNest);

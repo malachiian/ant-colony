@@ -60,7 +60,7 @@
       line-height: 1.45;
     }
 
-    .controls, .arena, .stat-panel, .notes, .brain-panel, .auto-panel, .diagnostics-panel, .rules-panel {
+    .controls, .arena, .stat-panel, .notes, .brain-panel, .auto-panel, .diagnostics-panel, .report-panel, .rules-panel {
       background: rgba(27, 33, 25, 0.95);
       border: 2px solid var(--line);
       box-shadow: 6px 6px 0 var(--shadow);
@@ -253,7 +253,7 @@
       color: var(--text);
     }
 
-    .brain-panel, .auto-panel, .diagnostics-panel, .rules-panel {
+    .brain-panel, .auto-panel, .diagnostics-panel, .report-panel, .rules-panel {
       margin-top: 14px;
       padding: 14px;
     }
@@ -335,6 +335,25 @@
 
     .brain-status.error {
       color: #ff8a7d;
+    }
+
+    .report-output {
+      min-height: 280px;
+      border: 2px solid var(--line);
+      background: #0b0f0b;
+      white-space: pre;
+    }
+
+    .report-status {
+      min-height: 24px;
+      margin-top: 8px;
+      color: var(--muted);
+      font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
     }
 
     .command-reference {
@@ -505,6 +524,17 @@
         <div class="diagnostic"><span>Berserk Ants</span><strong id="diagBerserkAnts">0</strong></div>
         <div class="diagnostic"><span>Ants Lost</span><strong id="diagKilled">0</strong></div>
       </div>
+    </section>
+
+    <section class="report-panel">
+      <div class="panel-title">
+        <h2>End Report</h2>
+        <div class="panel-actions">
+          <button id="copyReportBtn" class="secondary" disabled>Copy Report</button>
+        </div>
+      </div>
+      <textarea id="battleReport" class="report-output" readonly spellcheck="false">Run the simulation until one queen remains. A full team report will appear here.</textarea>
+      <div id="reportStatus" class="report-status">Waiting for battle end.</div>
     </section>
 
     <section class="auto-panel">
@@ -769,6 +799,9 @@ LOOP</textarea>
     const ruleDepletedFoodSources = document.querySelector('#ruleDepletedFoodSources');
     const ruleNextHatchAt = document.querySelector('#ruleNextHatchAt');
     const ruleTotalAnts = document.querySelector('#ruleTotalAnts');
+    const copyReportBtn = document.querySelector('#copyReportBtn');
+    const battleReport = document.querySelector('#battleReport');
+    const reportStatus = document.querySelector('#reportStatus');
 
     let timer = null;
     let state = null;
@@ -901,6 +934,8 @@ LOOP</textarea>
         emergencyBirths: 0,
         berserkTriggers: 0,
         killed: 0,
+        queenDamageEvents: [],
+        queenDeath: null,
       };
     }
 
@@ -926,6 +961,7 @@ LOOP</textarea>
     function reset() {
       compileBrains();
       state = makeState();
+      clearBattleReport();
       draw();
       updateStats();
     }
@@ -1408,12 +1444,50 @@ LOOP</textarea>
           markForAttack(ant);
         }
         if (attackers.length) {
-          setQueenHp(queen.team, Math.max(0, queenHpForTeam(queen.team) - attackers.length));
+          const hpBefore = queenHpForTeam(queen.team);
+          const hpAfter = Math.max(0, hpBefore - attackers.length);
+          setQueenHp(queen.team, hpAfter);
           state.metrics.queenDamageTaken += attackers.length;
           incrementQueenDamageTaken(queen.team, attackers.length);
+          recordQueenDamage(queen.team, attackers, hpBefore, hpAfter);
         }
       }
       removeDeadAnts();
+    }
+
+    function recordQueenDamage(team, attackers, hpBefore, hpAfter) {
+      const metrics = teamMetrics(team);
+      const queen = allQueens().find(item => item.team === team);
+      const friendlyAnts = teamAnts(team);
+      const defendersNear = queen ? friendlyAnts.filter(ant => distance(ant, queen.point) <= QUEEN_DEFENSE_RADIUS).length : 0;
+      const event = {
+        tick: state.tick,
+        amount: hpBefore - hpAfter,
+        hpBefore,
+        hpAfter,
+        antsAlive: friendlyAnts.length,
+        carrying: carryingForTeam(team),
+        defendersNear,
+        adjacentAttackers: attackers.length,
+        attackersByTeam: countByTeam(attackers),
+        queenStatus: defendersNear > 0 ? 'Defended' : 'Undefended',
+      };
+      metrics.queenDamageEvents.push(event);
+      if (hpAfter <= 0 && !metrics.queenDeath) {
+        metrics.queenDeath = {
+          ...event,
+          foodDelivered: deliveredForTeam(team),
+          foodLeft: totalFoodLeft(),
+          totalEnemyAnts: enemyAntsFor(team).length,
+        };
+      }
+    }
+
+    function countByTeam(ants) {
+      return TEAMS.reduce((counts, team) => {
+        counts[team] = ants.filter(ant => ant.team === team).length;
+        return counts;
+      }, {});
     }
 
     function advanceQueensAfterFoodGone() {
@@ -1466,6 +1540,7 @@ LOOP</textarea>
       const queens = livingQueens();
       if (queens.length !== 1) return false;
       state.winner = queens[0].team;
+      generateEndReport();
       return true;
     }
 
@@ -2290,6 +2365,140 @@ LOOP</textarea>
       };
     }
 
+    function clearBattleReport() {
+      battleReport.value = 'Run the simulation until one queen remains. A full team report will appear here.';
+      copyReportBtn.disabled = true;
+      reportStatus.textContent = 'Waiting for battle end.';
+    }
+
+    function generateEndReport() {
+      battleReport.value = buildBattleReport();
+      battleReport.scrollTop = 0;
+      copyReportBtn.disabled = false;
+      reportStatus.textContent = `Report ready at tick ${state.tick}.`;
+    }
+
+    function buildBattleReport() {
+      const lines = [
+        'Ant Colony Forage Battle Report',
+        `Result: ${winnerLabel()}`,
+        `Final Tick: ${state.tick}`,
+        `Food Left: ${totalFoodLeft()} / ${FOOD_PILES * FOOD_PER_PILE}`,
+        `Final Ants: Red ${state.ants.length}, Blue ${state.enemyAnts.length}, Green ${state.greenAnts.length}`,
+        '',
+      ];
+      for (const team of TEAMS) {
+        lines.push(...teamReportLines(team), '');
+      }
+      return lines.join('\n').trim();
+    }
+
+    function teamReportLines(team) {
+      const metrics = teamMetrics(team);
+      const diagnostics = getDiagnostics(team);
+      const outcome = state.winner === team ? 'Winner' : queenHpForTeam(team) <= 0 ? 'Queen died' : 'Survived';
+      return [
+        `=== ${teamLabel(team)} Team ===`,
+        `Outcome: ${outcome}`,
+        `Queen: ${queenConditionSummary(team)}`,
+        `Queen Damage Pattern: ${queenDamagePattern(metrics)}`,
+        'KPIs:',
+        `- Ants alive: ${diagnostics.ants}`,
+        `- Ants lost: ${diagnostics.killed}`,
+        `- Carrying food: ${diagnostics.carrying}`,
+        `- Food delivered: ${diagnostics.foodDelivered}`,
+        `- Food / 100 ticks: ${diagnostics.foodRate}`,
+        `- Pickups: ${diagnostics.pickups}`,
+        `- Last delivery: ${diagnostics.lastDelivery}`,
+        `- Move success: ${diagnostics.moveSuccess} (${metrics.successfulMoves}/${metrics.moveAttempts} successful, ${metrics.blockedMoves} blocked)`,
+        `- Idle commands: ${diagnostics.idleCommands}`,
+        `- Food-here marks: ${diagnostics.foodHereMarks}`,
+        `- Trail cells alive: ${diagnostics.trailCells}`,
+        `- Avg trail life: ${diagnostics.trailLife}`,
+        `- Trails laid / renewed: ${diagnostics.trailsLaid}`,
+        `- Trail follows: ${diagnostics.trailFollows}`,
+        `- Trail expired before food depleted / total expired: ${diagnostics.trailExpired}`,
+        `- Hatched ants: ${diagnostics.hatchedAnts}`,
+        `- Queen births: ${diagnostics.queenBirths}`,
+        `- Emergency births: ${diagnostics.emergencyBirths}`,
+        `- Attack marks: ${diagnostics.attackMarks}`,
+        `- Ant combat damage taken: ${diagnostics.combatDamage}`,
+        `- Queen damage taken: ${diagnostics.queenDamageTaken}`,
+        `- Queen advances: ${diagnostics.queenMoves}`,
+        `- Berserk ants: ${diagnostics.berserkAnts}`,
+        'Brain:',
+        '```',
+        brainForTeam(team).trim(),
+        '```',
+      ];
+    }
+
+    function queenConditionSummary(team) {
+      const metrics = teamMetrics(team);
+      const death = metrics.queenDeath;
+      if (death) {
+        return [
+          `Died at tick ${death.tick}`,
+          `HP ${death.hpBefore} -> ${death.hpAfter} from ${death.amount} damage`,
+          `attackers adjacent ${death.adjacentAttackers} (${teamCountsLabel(death.attackersByTeam)})`,
+          `ants alive ${death.antsAlive}`,
+          `defenders within ${QUEEN_DEFENSE_RADIUS} ${death.defendersNear}`,
+          `carrying ${death.carrying}`,
+          `food delivered ${death.foodDelivered}`,
+          `food left ${death.foodLeft}`,
+          `status ${death.queenStatus}`,
+        ].join('; ');
+      }
+      return [
+        `Alive with ${queenHpForTeam(team)} HP`,
+        `ants alive ${teamAnts(team).length}`,
+        `defenders within ${QUEEN_DEFENSE_RADIUS} ${defendersNearQueen(team)}`,
+        `carrying ${carryingForTeam(team)}`,
+        `status ${queenStatusLabel(team)}`,
+      ].join('; ');
+    }
+
+    function queenDamagePattern(metrics) {
+      const events = metrics.queenDamageEvents;
+      if (!events.length) return 'No queen damage recorded.';
+      const first = events[0];
+      const last = events[events.length - 1];
+      const total = events.reduce((sum, event) => sum + event.amount, 0);
+      const maxTickDamage = Math.max(...events.map(event => event.amount));
+      const span = Math.max(1, last.tick - first.tick + 1);
+      const recentDamage = events
+        .filter(event => last.tick - event.tick <= 50)
+        .reduce((sum, event) => sum + event.amount, 0);
+      const averageDamageTick = (total / events.length).toFixed(2);
+      let tempo = 'steady pressure';
+      if (span <= 50 || recentDamage >= 40 || maxTickDamage >= 4) {
+        tempo = 'rapid collapse';
+      } else if (span >= 250) {
+        tempo = 'slow attrition';
+      }
+      const ending = metrics.queenDeath ? `death followed ${span} ticks after first queen damage` : `queen survived through last damage at tick ${last.tick}`;
+      return `${tempo}; ${total} total damage over ${events.length} damaged ticks; max ${maxTickDamage} in one tick; final-50-tick damage ${recentDamage}; average damaged tick ${averageDamageTick}; ${ending}.`;
+    }
+
+    function defendersNearQueen(team) {
+      const queen = allQueens().find(item => item.team === team);
+      if (!queen || queen.hp <= 0) return 0;
+      return teamAnts(team).filter(ant => distance(ant, queen.point) <= QUEEN_DEFENSE_RADIUS).length;
+    }
+
+    function teamCountsLabel(counts) {
+      const parts = TEAMS
+        .map(team => `${teamLabel(team)} ${counts[team] || 0}`)
+        .filter(part => !part.endsWith(' 0'));
+      return parts.length ? parts.join(', ') : 'none';
+    }
+
+    function brainForTeam(team) {
+      if (team === 'enemy') return blueBrainCode.value;
+      if (team === 'green') return greenBrainCode.value;
+      return redBrainCode.value;
+    }
+
     function totalFoodLeft() {
       return state.cells.flat().reduce((total, cell) => total + cell.food, 0);
     }
@@ -2432,6 +2641,14 @@ LOOP</textarea>
         copyBrainBtn.textContent = 'Copy Red';
       }, 900);
     });
+    copyReportBtn.addEventListener('click', async () => {
+      await copyReportText();
+      copyReportBtn.textContent = 'Copied';
+      reportStatus.textContent = 'Report copied to clipboard.';
+      setTimeout(() => {
+        copyReportBtn.textContent = 'Copy Report';
+      }, 900);
+    });
     speedSlider.addEventListener('input', () => {
       speedLabel.textContent = `${speedSlider.value}x`;
       if (timer) run();
@@ -2442,6 +2659,22 @@ LOOP</textarea>
       const count = textarea.value.split('\n').length;
       lineNumbers.textContent = Array.from({length: count}, (_, index) => index + 1).join('\n');
       lineNumbers.scrollTop = textarea.scrollTop;
+    }
+
+    async function copyReportText() {
+      if (navigator.clipboard && window.isSecureContext) {
+        try {
+          await navigator.clipboard.writeText(battleReport.value);
+          return;
+        } catch (error) {
+          // Fall back when the browser exposes clipboard APIs but denies permission.
+        }
+      }
+      battleReport.focus();
+      battleReport.select();
+      document.execCommand('copy');
+      battleReport.setSelectionRange(0, 0);
+      battleReport.scrollTop = 0;
     }
 
     updateLineNumbers(redBrainCode, redLineNumbers);

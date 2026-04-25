@@ -668,9 +668,7 @@ LOOP</textarea>
       </div>
       <div class="rules-grid">
         <div class="rule-stat"><span>Grid</span><strong id="ruleGrid">0 x 0</strong></div>
-        <div class="rule-stat"><span>Starting Red Ants</span><strong id="ruleStartAnts">0</strong></div>
-        <div class="rule-stat"><span>Starting Blue Ants</span><strong id="ruleEnemyAnts">0</strong></div>
-        <div class="rule-stat"><span>Starting Green Ants</span><strong id="ruleGreenAnts">0</strong></div>
+        <div class="rule-stat"><span>Starting Ants / Team</span><strong id="ruleStartAnts">0</strong></div>
         <div class="rule-stat"><span>Food Sources</span><strong id="ruleFoodSources">0</strong></div>
         <div class="rule-stat"><span>Food / Source</span><strong id="ruleFoodPerSource">0</strong></div>
         <div class="rule-stat"><span>Starting Food</span><strong id="ruleStartingFood">0</strong></div>
@@ -797,8 +795,6 @@ LOOP</textarea>
     const diagKilled = document.querySelector('#diagKilled');
     const ruleGrid = document.querySelector('#ruleGrid');
     const ruleStartAnts = document.querySelector('#ruleStartAnts');
-    const ruleEnemyAnts = document.querySelector('#ruleEnemyAnts');
-    const ruleGreenAnts = document.querySelector('#ruleGreenAnts');
     const ruleFoodSources = document.querySelector('#ruleFoodSources');
     const ruleFoodPerSource = document.querySelector('#ruleFoodPerSource');
     const ruleStartingFood = document.querySelector('#ruleStartingFood');
@@ -2602,8 +2598,6 @@ LOOP</textarea>
       const activeFoodSources = cells.filter(cell => cell.food > 0).length;
       ruleGrid.textContent = `${GRID} x ${GRID}`;
       ruleStartAnts.textContent = START_ANTS;
-      ruleEnemyAnts.textContent = START_ENEMY_ANTS;
-      ruleGreenAnts.textContent = START_GREEN_ANTS;
       ruleFoodSources.textContent = FOOD_PILES;
       ruleFoodPerSource.textContent = FOOD_PER_PILE;
       ruleStartingFood.textContent = FOOD_PILES * FOOD_PER_PILE;

@@ -570,7 +570,7 @@
         <div class="command"><code>AUTO QUEEN BIRTH</code>Every living queen births one same-team ant every 1000 ticks, regardless of food.</div>
         <div class="command"><code>AUTO EMERGENCY BIRTH</code>If a living queen has zero ants, she immediately births two ants and drops to half HP. Below 20 HP, she drops to 1 HP.</div>
         <div class="command"><code>AUTO QUEEN CENTER STEP</code>Every 10000 ticks, each living queen takes one step toward the center.</div>
-        <div class="command"><code>AUTO QUEEN DAMAGE</code>Adjacent enemy ants damage queens for 1 HP every tick. Queens do not damage ants.</div>
+        <div class="command"><code>AUTO QUEEN DAMAGE</code>Adjacent berserk enemy ants damage queens for 1 HP every tick. Queens do not damage ants.</div>
         <div class="command"><code>AUTO BERSERK</code>If a queen has no friendly ants within 5 squares, enemy ants within 5 squares of that queen go berserk and attack it.</div>
       </div>
     </section>
@@ -1536,7 +1536,7 @@ LOOP</textarea>
     function resolveQueenAttacks() {
       for (const queen of allQueens()) {
         if (queen.hp <= 0) continue;
-        const attackers = enemyAntsFor(queen.team).filter(ant => distance(ant, queen.point) === 1);
+        const attackers = enemyAntsFor(queen.team).filter(ant => ant.berserkTarget === queen.team && distance(ant, queen.point) === 1);
         for (const ant of attackers) {
           markForAttack(ant);
         }
@@ -2659,7 +2659,7 @@ LOOP</textarea>
       ruleAntHp.textContent = ANT_MAX_HP;
       ruleQueenHp.textContent = QUEEN_MAX_HP;
       ruleCombatRate.textContent = `1 damage / ${COMBAT_DAMAGE_INTERVAL} ticks`;
-      ruleQueenDamageRate.textContent = '1 HP / adjacent enemy / tick';
+      ruleQueenDamageRate.textContent = '1 HP / adjacent berserk enemy / tick';
       ruleQueenMoveRate.textContent = `1 queen / ${QUEEN_MOVE_INTERVAL} ticks`;
       ruleQueenCenterStepRate.textContent = `all queens / ${ALL_QUEEN_CENTER_STEP_INTERVAL} ticks`;
       ruleQueenBirthRate.textContent = `1 ant / queen / ${QUEEN_BIRTH_INTERVAL} ticks`;

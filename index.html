@@ -101,6 +101,16 @@
       letter-spacing: 0.06em;
     }
 
+    select {
+      border: 2px solid var(--line);
+      background: var(--panel-soft);
+      color: var(--text);
+      padding: 9px 32px 9px 10px;
+      font-weight: 850;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
     input[type="range"] {
       width: 170px;
       accent-color: var(--gold);
@@ -266,6 +276,12 @@
     .panel-title h2 {
       margin: 0;
       font: 700 22px/1 Georgia, "Times New Roman", serif;
+    }
+
+    .panel-actions {
+      display: flex;
+      align-items: end;
+      gap: 10px;
     }
 
     .editor-wrap {
@@ -448,9 +464,25 @@
     <section class="diagnostics-panel">
       <div class="panel-title">
         <h2>Diagnostics</h2>
+        <div class="panel-actions">
+          <label>
+            Team
+            <select id="diagnosticTeamSelect">
+              <option value="colony">Red</option>
+              <option value="enemy">Blue</option>
+              <option value="green">Green</option>
+            </select>
+          </label>
+        </div>
       </div>
       <div class="diagnostics-grid">
+        <div class="diagnostic"><span>Selected Team</span><strong id="diagTeamName">Red</strong></div>
+        <div class="diagnostic"><span>Ants</span><strong id="diagTeamAnts">6</strong></div>
+        <div class="diagnostic"><span>Carrying</span><strong id="diagTeamCarrying">0</strong></div>
+        <div class="diagnostic"><span>Food Delivered</span><strong id="diagFoodDelivered">0</strong></div>
         <div class="diagnostic"><span>Food / 100 Ticks</span><strong id="diagFoodRate">0.00</strong></div>
+        <div class="diagnostic"><span>Queen HP</span><strong id="diagQueenHp">100</strong></div>
+        <div class="diagnostic"><span>Queen Status</span><strong id="diagQueenStatus">Defended</strong></div>
         <div class="diagnostic"><span>Pickups</span><strong id="diagPickups">0</strong></div>
         <div class="diagnostic"><span>Last Delivery</span><strong id="diagLastDelivery">never</strong></div>
         <div class="diagnostic"><span>Move Success</span><strong id="diagMoveSuccess">0%</strong></div>
@@ -465,12 +497,12 @@
         <div class="diagnostic"><span>Trail Expired (Before Food Depleted)</span><strong id="diagTrailExpired">0</strong></div>
         <div class="diagnostic"><span>Attack Marks</span><strong id="diagAttackMarks">0</strong></div>
         <div class="diagnostic"><span>Combat Damage</span><strong id="diagCombatDamage">0</strong></div>
-        <div class="diagnostic"><span>Queen Damage Taken R / B / G</span><strong id="diagQueenDamageTaken">0 / 0 / 0</strong></div>
-        <div class="diagnostic"><span>Queen Advances R / B / G</span><strong id="diagQueenMoves">0 / 0 / 0</strong></div>
-        <div class="diagnostic"><span>Queen Births R / B / G</span><strong id="diagQueenBirths">0 / 0 / 0</strong></div>
-        <div class="diagnostic"><span>Emergency Births R / B / G</span><strong id="diagEmergencyBirths">0 / 0 / 0</strong></div>
+        <div class="diagnostic"><span>Queen Damage Taken</span><strong id="diagQueenDamageTaken">0</strong></div>
+        <div class="diagnostic"><span>Queen Advances</span><strong id="diagQueenMoves">0</strong></div>
+        <div class="diagnostic"><span>Queen Births</span><strong id="diagQueenBirths">0</strong></div>
+        <div class="diagnostic"><span>Emergency Births</span><strong id="diagEmergencyBirths">0</strong></div>
         <div class="diagnostic"><span>Berserk Ants</span><strong id="diagBerserkAnts">0</strong></div>
-        <div class="diagnostic"><span>Red / Blue / Green Killed</span><strong id="diagKilled">0 / 0 / 0</strong></div>
+        <div class="diagnostic"><span>Ants Lost</span><strong id="diagKilled">0</strong></div>
       </div>
     </section>
 
@@ -680,7 +712,14 @@ LOOP</textarea>
     const blueQueenStatus = document.querySelector('#blueQueenStatus');
     const greenQueenStatus = document.querySelector('#greenQueenStatus');
     const gameStatus = document.querySelector('#gameStatus');
+    const diagnosticTeamSelect = document.querySelector('#diagnosticTeamSelect');
+    const diagTeamName = document.querySelector('#diagTeamName');
+    const diagTeamAnts = document.querySelector('#diagTeamAnts');
+    const diagTeamCarrying = document.querySelector('#diagTeamCarrying');
+    const diagFoodDelivered = document.querySelector('#diagFoodDelivered');
     const diagFoodRate = document.querySelector('#diagFoodRate');
+    const diagQueenHp = document.querySelector('#diagQueenHp');
+    const diagQueenStatus = document.querySelector('#diagQueenStatus');
     const diagPickups = document.querySelector('#diagPickups');
     const diagLastDelivery = document.querySelector('#diagLastDelivery');
     const diagMoveSuccess = document.querySelector('#diagMoveSuccess');
@@ -832,7 +871,42 @@ LOOP</textarea>
         redKilled: 0,
         blueKilled: 0,
         greenKilled: 0,
+        teams: Object.fromEntries(TEAMS.map(team => [team, makeTeamMetrics()])),
       };
+    }
+
+    function makeTeamMetrics() {
+      return {
+        pickups: 0,
+        lastDeliveryTick: null,
+        moveAttempts: 0,
+        successfulMoves: 0,
+        blockedMoves: 0,
+        idleCommands: 0,
+        foodHereTagged: 0,
+        foodHereExpired: 0,
+        trailsLaid: 0,
+        trailsRenewed: 0,
+        trailFollowsToFood: 0,
+        trailFollowsToBase: 0,
+        trailExpired: 0,
+        trailExpiredBeforeFoodDepleted: 0,
+        hatchedAnts: 0,
+        attackMarks: 0,
+        combatDamage: 0,
+        queenDamageTaken: 0,
+        queenMoves: 0,
+        queenBirths: 0,
+        emergencyBirths: 0,
+        berserkTriggers: 0,
+        killed: 0,
+      };
+    }
+
+    function teamMetrics(team) {
+      if (!state.metrics.teams) state.metrics.teams = Object.fromEntries(TEAMS.map(item => [item, makeTeamMetrics()]));
+      if (!state.metrics.teams[team]) state.metrics.teams[team] = makeTeamMetrics();
+      return state.metrics.teams[team];
     }
 
     function scatterFood(cells, blocked, nests) {
@@ -911,12 +985,16 @@ LOOP</textarea>
       const moves = ants.map(ant => decideMove(ant, program));
       for (const move of moves) {
         if (!move.target) continue;
+        const metrics = teamMetrics(move.ant.team);
         state.metrics.moveAttempts += 1;
+        metrics.moveAttempts += 1;
         if (!inBounds(move.target.x, move.target.y) || isNestPoint(move.target)) {
           state.metrics.blockedMoves += 1;
+          metrics.blockedMoves += 1;
           continue;
         }
         state.metrics.successfulMoves += 1;
+        metrics.successfulMoves += 1;
         move.ant.dir = directionBetween(move.ant, move.target);
         move.ant.x = move.target.x;
         move.ant.y = move.target.y;
@@ -940,6 +1018,7 @@ LOOP</textarea>
       state.delivered += 1;
       setDelivered(ant.team, deliveredForTeam(ant.team) + 1);
       state.metrics.lastDeliveryTick = state.tick;
+      teamMetrics(ant.team).lastDeliveryTick = state.tick;
       hatchAntsIfReady(ant.team);
     }
 
@@ -948,6 +1027,7 @@ LOOP</textarea>
         addAntForTeam(team);
         setNextHatch(team, nextHatchForTeam(team) + FOOD_PER_NEW_ANT);
         state.metrics.hatchedAnts += 1;
+        teamMetrics(team).hatchedAnts += 1;
       }
     }
 
@@ -1104,6 +1184,7 @@ LOOP</textarea>
     }
 
     function incrementQueenDamageTaken(team, value) {
+      teamMetrics(team).queenDamageTaken += value;
       if (team === 'enemy') {
         state.metrics.blueQueenDamageTaken += value;
       } else if (team === 'green') {
@@ -1114,6 +1195,7 @@ LOOP</textarea>
     }
 
     function incrementQueenMoves(team, value) {
+      teamMetrics(team).queenMoves += value;
       if (team === 'enemy') {
         state.metrics.blueQueenMoves += value;
       } else if (team === 'green') {
@@ -1124,6 +1206,7 @@ LOOP</textarea>
     }
 
     function incrementQueenBirths(team, value) {
+      teamMetrics(team).queenBirths += value;
       if (team === 'enemy') {
         state.metrics.blueQueenBirths += value;
       } else if (team === 'green') {
@@ -1134,6 +1217,7 @@ LOOP</textarea>
     }
 
     function incrementEmergencyBirths(team, value) {
+      teamMetrics(team).emergencyBirths += value;
       if (team === 'enemy') {
         state.metrics.blueEmergencyBirths += value;
       } else if (team === 'green') {
@@ -1152,6 +1236,7 @@ LOOP</textarea>
           .sort((a, b) => distance(ant, a.point) - distance(ant, b.point));
         if (!possibleTargets.length) continue;
         if (!ant.berserkTarget) state.metrics.berserkTriggers += 1;
+        if (!ant.berserkTarget) teamMetrics(ant.team).berserkTriggers += 1;
         ant.berserkTarget = possibleTargets[0].team;
         markForAttack(ant);
       }
@@ -1181,15 +1266,19 @@ LOOP</textarea>
       const moves = state.enemyAnts.map(ant => decide(ant, blueProgram));
       for (const move of moves) {
         if (!move.target) continue;
+        const metrics = teamMetrics(move.ant.team);
         state.metrics.moveAttempts += 1;
+        metrics.moveAttempts += 1;
         if (!inBounds(move.target.x, move.target.y) || isNestPoint(move.target)) {
           state.metrics.blockedMoves += 1;
+          metrics.blockedMoves += 1;
           continue;
         }
         move.ant.dir = directionBetween(move.ant, move.target);
         move.ant.x = move.target.x;
         move.ant.y = move.target.y;
         state.metrics.successfulMoves += 1;
+        metrics.successfulMoves += 1;
         tagFoodHere(move.ant);
       }
     }
@@ -1213,6 +1302,7 @@ LOOP</textarea>
       if (ant.attack) return;
       ant.attack = true;
       state.metrics.attackMarks += 1;
+      teamMetrics(ant.team).attackMarks += 1;
     }
 
     function attackMarkedTarget(ant, radius) {
@@ -1266,6 +1356,7 @@ LOOP</textarea>
       for (const [ant, amount] of damage) {
         ant.hp -= amount;
         state.metrics.combatDamage += amount;
+        teamMetrics(ant.team).combatDamage += amount;
       }
       breakMutualCombatDeaths(combatPairs);
       removeDeadAnts();
@@ -1289,6 +1380,9 @@ LOOP</textarea>
       state.metrics.redKilled += redBefore - state.ants.length;
       state.metrics.blueKilled += blueBefore - state.enemyAnts.length;
       state.metrics.greenKilled += greenBefore - state.greenAnts.length;
+      teamMetrics('colony').killed += redBefore - state.ants.length;
+      teamMetrics('enemy').killed += blueBefore - state.enemyAnts.length;
+      teamMetrics('green').killed += greenBefore - state.greenAnts.length;
     }
 
     function resolveQueenAttacks() {
@@ -1417,13 +1511,17 @@ LOOP</textarea>
       ant.foodSource = {x: ant.x, y: ant.y};
       ant.returnMoveCharge = 0;
       state.metrics.pickups += 1;
+      teamMetrics(ant.team).pickups += 1;
     }
 
     function tagFoodHere(ant) {
       const cell = state.cells[ant.y][ant.x];
       if (cell.food <= 0) return;
       ensureFoodHereTicks(cell);
-      if (cell.foodHereTicks[ant.team] <= 0) state.metrics.foodHereTagged += 1;
+      if (cell.foodHereTicks[ant.team] <= 0) {
+        state.metrics.foodHereTagged += 1;
+        teamMetrics(ant.team).foodHereTagged += 1;
+      }
       cell.foodHereTicks[ant.team] = FOOD_HERE_MARK_TICKS;
     }
 
@@ -1435,6 +1533,7 @@ LOOP</textarea>
             if (cell.foodHereTicks[team] <= 0) continue;
             cell.foodHereTicks[team] -= 1;
             if (cell.foodHereTicks[team] <= 0) state.metrics.foodHereExpired += 1;
+            if (cell.foodHereTicks[team] <= 0) teamMetrics(team).foodHereExpired += 1;
           }
         }
       }
@@ -1471,7 +1570,10 @@ LOOP</textarea>
       if (ant.pc < 0 || ant.pc >= program.length) ant.pc = 0;
       const result = executeInstruction(ant, program[ant.pc]);
       ant.pc = result.repeat ? ant.pc : result.nextPc === undefined ? (ant.pc + 1) % program.length : result.nextPc;
-      if (!result.target && result.nextPc === undefined && !result.didAct) state.metrics.idleCommands += 1;
+      if (!result.target && result.nextPc === undefined && !result.didAct) {
+        state.metrics.idleCommands += 1;
+        teamMetrics(ant.team).idleCommands += 1;
+      }
       return {ant, target: result.target || null};
     }
 
@@ -1521,8 +1623,10 @@ LOOP</textarea>
       const existingTrail = state.cells[ant.y][ant.x].foodTrail;
       if (isTeamFoodTrail(existingTrail, ant.team)) {
         state.metrics.trailsRenewed += 1;
+        teamMetrics(ant.team).trailsRenewed += 1;
       } else {
         state.metrics.trailsLaid += 1;
+        teamMetrics(ant.team).trailsLaid += 1;
       }
       state.cells[ant.y][ant.x].foodTrail = {
         owner: ant.team,
@@ -1543,8 +1647,10 @@ LOOP</textarea>
       if (!inBounds(target.x, target.y) || isNestPoint(target)) return null;
       if (direction === 'base') {
         state.metrics.trailFollowsToBase += 1;
+        teamMetrics(ant.team).trailFollowsToBase += 1;
       } else {
         state.metrics.trailFollowsToFood += 1;
+        teamMetrics(ant.team).trailFollowsToFood += 1;
       }
       return target;
     }
@@ -1563,9 +1669,14 @@ LOOP</textarea>
           if (!cell.foodTrail) continue;
           cell.foodTrail.ticks -= 1;
           if (cell.foodTrail.ticks <= 0) {
-            if (trailFoodRemaining(cell.foodTrail) > 0) state.metrics.trailExpiredBeforeFoodDepleted += 1;
+            const owner = cell.foodTrail.owner;
+            if (trailFoodRemaining(cell.foodTrail) > 0) {
+              state.metrics.trailExpiredBeforeFoodDepleted += 1;
+              if (owner) teamMetrics(owner).trailExpiredBeforeFoodDepleted += 1;
+            }
             cell.foodTrail = null;
             state.metrics.trailExpired += 1;
+            if (owner) teamMetrics(owner).trailExpired += 1;
           }
         }
       }
@@ -2089,8 +2200,14 @@ LOOP</textarea>
     }
 
     function updateDiagnostics() {
-      const diagnostics = getDiagnostics();
+      const diagnostics = getDiagnostics(diagnosticTeamSelect.value);
+      diagTeamName.textContent = diagnostics.teamName;
+      diagTeamAnts.textContent = diagnostics.ants;
+      diagTeamCarrying.textContent = diagnostics.carrying;
+      diagFoodDelivered.textContent = diagnostics.foodDelivered;
       diagFoodRate.textContent = diagnostics.foodRate;
+      diagQueenHp.textContent = diagnostics.queenHp;
+      diagQueenStatus.textContent = diagnostics.queenStatus;
       diagPickups.textContent = diagnostics.pickups;
       diagLastDelivery.textContent = diagnostics.lastDelivery;
       diagMoveSuccess.textContent = diagnostics.moveSuccess;
@@ -2113,18 +2230,25 @@ LOOP</textarea>
       diagKilled.textContent = diagnostics.killed;
     }
 
-    function getDiagnostics() {
+    function getDiagnostics(team) {
       const cells = state.cells.flat();
-      const trailCells = cells.filter(cell => isActiveFoodTrail(cell.foodTrail));
-      const foodHereMarks = cells.reduce((total, cell) => total + activeFoodHereTeams(cell).length, 0);
+      const trailCells = cells.filter(cell => isTeamFoodTrail(cell.foodTrail, team));
+      const foodHereMarks = cells.reduce((total, cell) => total + (foodHereTicksForTeam(cell, team) > 0 ? 1 : 0), 0);
       const totalTrailTicks = trailCells.reduce((total, cell) => total + cell.foodTrail.ticks, 0);
       const trailLife = trailCells.length ? Math.round(100 * totalTrailTicks / (trailCells.length * FOOD_TRAIL_MARK_TICKS)) : 0;
-      const metrics = state.metrics;
+      const metrics = teamMetrics(team);
       const moveSuccess = metrics.moveAttempts ? Math.round(100 * metrics.successfulMoves / metrics.moveAttempts) : 0;
-      const foodRate = state.tick ? (state.delivered * 100 / state.tick).toFixed(2) : '0.00';
+      const delivered = deliveredForTeam(team);
+      const foodRate = state.tick ? (delivered * 100 / state.tick).toFixed(2) : '0.00';
       const lastDelivery = metrics.lastDeliveryTick === null ? 'never' : `${state.tick - metrics.lastDeliveryTick} ticks ago`;
       return {
+        teamName: teamLabel(team),
+        ants: formatNumber(teamAnts(team).length),
+        carrying: formatNumber(carryingForTeam(team)),
+        foodDelivered: formatNumber(delivered),
         foodRate,
+        queenHp: formatNumber(queenHpForTeam(team)),
+        queenStatus: queenStatusLabel(team),
         pickups: formatNumber(metrics.pickups),
         lastDelivery,
         moveSuccess: `${moveSuccess}%`,
@@ -2139,12 +2263,12 @@ LOOP</textarea>
         trailExpired: `${formatNumber(metrics.trailExpiredBeforeFoodDepleted)} / ${formatNumber(metrics.trailExpired)}`,
         attackMarks: formatNumber(metrics.attackMarks),
         combatDamage: formatNumber(metrics.combatDamage),
-        queenDamageTaken: `${formatNumber(metrics.redQueenDamageTaken)} / ${formatNumber(metrics.blueQueenDamageTaken)} / ${formatNumber(metrics.greenQueenDamageTaken)}`,
-        queenMoves: `${formatNumber(metrics.redQueenMoves)} / ${formatNumber(metrics.blueQueenMoves)} / ${formatNumber(metrics.greenQueenMoves)}`,
-        queenBirths: `${formatNumber(metrics.redQueenBirths)} / ${formatNumber(metrics.blueQueenBirths)} / ${formatNumber(metrics.greenQueenBirths)}`,
-        emergencyBirths: `${formatNumber(metrics.redEmergencyBirths)} / ${formatNumber(metrics.blueEmergencyBirths)} / ${formatNumber(metrics.greenEmergencyBirths)}`,
-        berserkAnts: `${formatNumber(allAnts().filter(ant => ant.berserkTarget).length)} (${formatNumber(metrics.berserkTriggers)} triggers)`,
-        killed: `${formatNumber(metrics.redKilled)} / ${formatNumber(metrics.blueKilled)} / ${formatNumber(metrics.greenKilled)}`,
+        queenDamageTaken: formatNumber(metrics.queenDamageTaken),
+        queenMoves: formatNumber(metrics.queenMoves),
+        queenBirths: formatNumber(metrics.queenBirths),
+        emergencyBirths: formatNumber(metrics.emergencyBirths),
+        berserkAnts: `${formatNumber(teamAnts(team).filter(ant => ant.berserkTarget).length)} (${formatNumber(metrics.berserkTriggers)} triggers)`,
+        killed: formatNumber(metrics.killed),
       };
     }
 
@@ -2294,6 +2418,7 @@ LOOP</textarea>
       speedLabel.textContent = `${speedSlider.value}x`;
       if (timer) run();
     });
+    diagnosticTeamSelect.addEventListener('change', updateDiagnostics);
 
     function updateLineNumbers(textarea, lineNumbers) {
       const count = textarea.value.split('\n').length;

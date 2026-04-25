@@ -534,7 +534,12 @@
         <div class="diagnostic"><span>Trail Follows</span><strong id="diagTrailFollows">0</strong></div>
         <div class="diagnostic"><span>Trail Expired (Before Food Depleted)</span><strong id="diagTrailExpired">0</strong></div>
         <div class="diagnostic"><span>Attack Marks</span><strong id="diagAttackMarks">0</strong></div>
+        <div class="diagnostic"><span>Combat Engagements</span><strong id="diagCombatEngagements">0</strong></div>
+        <div class="diagnostic"><span>Combat Triggers</span><strong id="diagCombatTriggers">0</strong></div>
+        <div class="diagnostic"><span>Combat Ants Joined</span><strong id="diagCombatAntsJoined">0</strong></div>
         <div class="diagnostic"><span>Combat Damage</span><strong id="diagCombatDamage">0</strong></div>
+        <div class="diagnostic"><span>RNG Coin Tosses</span><strong id="diagCoinTosses">0</strong></div>
+        <div class="diagnostic"><span>RNG Coin Toss W / L</span><strong id="diagCoinTossRecord">0 / 0</strong></div>
         <div class="diagnostic"><span>Queen Damage Taken</span><strong id="diagQueenDamageTaken">0</strong></div>
         <div class="diagnostic"><span>Queen Advances</span><strong id="diagQueenMoves">0</strong></div>
         <div class="diagnostic"><span>Queen Births</span><strong id="diagQueenBirths">0</strong></div>
@@ -778,7 +783,12 @@ LOOP</textarea>
     const diagTrailFollows = document.querySelector('#diagTrailFollows');
     const diagTrailExpired = document.querySelector('#diagTrailExpired');
     const diagAttackMarks = document.querySelector('#diagAttackMarks');
+    const diagCombatEngagements = document.querySelector('#diagCombatEngagements');
+    const diagCombatTriggers = document.querySelector('#diagCombatTriggers');
+    const diagCombatAntsJoined = document.querySelector('#diagCombatAntsJoined');
     const diagCombatDamage = document.querySelector('#diagCombatDamage');
+    const diagCoinTosses = document.querySelector('#diagCoinTosses');
+    const diagCoinTossRecord = document.querySelector('#diagCoinTossRecord');
     const diagQueenDamageTaken = document.querySelector('#diagQueenDamageTaken');
     const diagQueenMoves = document.querySelector('#diagQueenMoves');
     const diagQueenBirths = document.querySelector('#diagQueenBirths');
@@ -937,7 +947,16 @@ LOOP</textarea>
         trailExpiredBeforeFoodDepleted: 0,
         hatchedAnts: 0,
         attackMarks: 0,
+        combatEngagements: 0,
+        combatTriggerOwnMarked: 0,
+        combatTriggerEnemyMarked: 0,
+        combatTriggerBothMarked: 0,
+        combatAntIds: {},
+        peakCombatAnts: 0,
         combatDamage: 0,
+        coinTosses: 0,
+        coinTossWins: 0,
+        coinTossLosses: 0,
         queenDamageTaken: 0,
         queenMoves: 0,
         queenBirths: 0,
@@ -1432,12 +1451,16 @@ LOOP</textarea>
     function resolveCombat() {
       const damage = new Map();
       const combatPairs = [];
+      const tickCombatants = new Map(TEAMS.map(team => [team, new Set()]));
       const ants = allAnts();
       for (let i = 0; i < ants.length; i += 1) {
         for (let j = i + 1; j < ants.length; j += 1) {
           const ant = ants[i];
           const enemy = ants[j];
           if (ant.team === enemy.team || distance(ant, enemy) !== 1 || (!ant.attack && !enemy.attack)) continue;
+          const antWasMarked = ant.attack;
+          const enemyWasMarked = enemy.attack;
+          recordCombatEngagement(ant, enemy, antWasMarked, enemyWasMarked, tickCombatants);
           markForAttack(ant);
           markForAttack(enemy);
           combatPairs.push([ant, enemy]);
@@ -1457,12 +1480,42 @@ LOOP</textarea>
       removeDeadAnts();
     }
 
+    function recordCombatEngagement(ant, enemy, antWasMarked, enemyWasMarked, tickCombatants) {
+      recordCombatParticipant(ant, antWasMarked, enemyWasMarked, tickCombatants);
+      recordCombatParticipant(enemy, enemyWasMarked, antWasMarked, tickCombatants);
+    }
+
+    function recordCombatParticipant(ant, ownMarked, enemyMarked, tickCombatants) {
+      const metrics = teamMetrics(ant.team);
+      const teamCombatants = tickCombatants.get(ant.team);
+      metrics.combatEngagements += 1;
+      metrics.combatAntIds[ant.id] = true;
+      teamCombatants.add(ant.id);
+      metrics.peakCombatAnts = Math.max(metrics.peakCombatAnts, teamCombatants.size);
+      if (ownMarked && enemyMarked) {
+        metrics.combatTriggerBothMarked += 1;
+      } else if (ownMarked) {
+        metrics.combatTriggerOwnMarked += 1;
+      } else if (enemyMarked) {
+        metrics.combatTriggerEnemyMarked += 1;
+      }
+    }
+
     function breakMutualCombatDeaths(combatPairs) {
       for (const [ant, enemy] of combatPairs) {
         if (ant.hp > 0 || enemy.hp > 0) continue;
         const survivor = Math.random() < 0.5 ? ant : enemy;
+        recordCoinTossResolution(ant, enemy, survivor);
         survivor.hp = 1;
       }
+    }
+
+    function recordCoinTossResolution(ant, enemy, survivor) {
+      const loser = survivor === ant ? enemy : ant;
+      teamMetrics(ant.team).coinTosses += 1;
+      teamMetrics(enemy.team).coinTosses += 1;
+      teamMetrics(survivor.team).coinTossWins += 1;
+      teamMetrics(loser.team).coinTossLosses += 1;
     }
 
     function removeDeadAnts() {
@@ -2366,7 +2419,12 @@ LOOP</textarea>
       diagTrailFollows.textContent = diagnostics.trailFollows;
       diagTrailExpired.textContent = diagnostics.trailExpired;
       diagAttackMarks.textContent = diagnostics.attackMarks;
+      diagCombatEngagements.textContent = diagnostics.combatEngagements;
+      diagCombatTriggers.textContent = diagnostics.combatTriggers;
+      diagCombatAntsJoined.textContent = diagnostics.combatAntsJoined;
       diagCombatDamage.textContent = diagnostics.combatDamage;
+      diagCoinTosses.textContent = diagnostics.coinTosses;
+      diagCoinTossRecord.textContent = diagnostics.coinTossRecord;
       diagQueenDamageTaken.textContent = diagnostics.queenDamageTaken;
       diagQueenMoves.textContent = diagnostics.queenMoves;
       diagQueenBirths.textContent = diagnostics.queenBirths;
@@ -2408,7 +2466,12 @@ LOOP</textarea>
         trailSpeed: `${formatPercent(metrics.trailSpeedBonus)} (${formatNumber(metrics.trailDeliveries)} deliveries)`,
         trailExpired: `${formatNumber(metrics.trailExpiredBeforeFoodDepleted)} / ${formatNumber(metrics.trailExpired)}`,
         attackMarks: formatNumber(metrics.attackMarks),
+        combatEngagements: formatNumber(metrics.combatEngagements),
+        combatTriggers: combatTriggersLabel(metrics),
+        combatAntsJoined: `${formatNumber(Object.keys(metrics.combatAntIds).length)} unique / ${formatNumber(metrics.peakCombatAnts)} peak`,
         combatDamage: formatNumber(metrics.combatDamage),
+        coinTosses: formatNumber(metrics.coinTosses),
+        coinTossRecord: `${formatNumber(metrics.coinTossWins)} / ${formatNumber(metrics.coinTossLosses)}`,
         queenDamageTaken: formatNumber(metrics.queenDamageTaken),
         queenMoves: formatNumber(metrics.queenMoves),
         queenBirths: formatNumber(metrics.queenBirths),
@@ -2473,6 +2536,11 @@ LOOP</textarea>
         `- Trail follows: ${diagnostics.trailFollows}`,
         `- Trail speed bonus: ${diagnostics.trailSpeed}`,
         `- Trail expired before food depleted / total expired: ${diagnostics.trailExpired}`,
+        `- Combat engagements: ${diagnostics.combatEngagements}`,
+        `- Combat triggers: ${diagnostics.combatTriggers}`,
+        `- Combat ants joined: ${diagnostics.combatAntsJoined}`,
+        `- RNG coin tosses: ${diagnostics.coinTosses}`,
+        `- RNG coin toss W / L: ${diagnostics.coinTossRecord}`,
         `- Hatched ants: ${diagnostics.hatchedAnts}`,
         `- Queen births: ${diagnostics.queenBirths}`,
         `- Emergency births: ${diagnostics.emergencyBirths}`,
@@ -2544,6 +2612,10 @@ LOOP</textarea>
           return `\n- tick ${event.tick}: ${event.amount} damage, HP ${event.hpBefore}->${event.hpAfter}, attackers ${event.adjacentAttackers} (${attackers}), defenders ${event.defendersNear}, ants alive ${event.antsAlive}, carrying ${event.carrying}, status ${event.queenStatus}`;
         })
         .join('');
+    }
+
+    function combatTriggersLabel(metrics) {
+      return `own ${formatNumber(metrics.combatTriggerOwnMarked)} / enemy ${formatNumber(metrics.combatTriggerEnemyMarked)} / both ${formatNumber(metrics.combatTriggerBothMarked)}`;
     }
 
     function defendersNearQueen(team) {

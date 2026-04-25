@@ -13,6 +13,7 @@
       --line: #46513d;
       --text: #f0ead9;
       --muted: #b6ad98;
+      --blue: #5e92df;
       --green: #77d66f;
       --gold: #e2ba5d;
       --ant: #d34843;
@@ -58,7 +59,7 @@
       line-height: 1.45;
     }
 
-    .controls, .arena, .stat, .notes, .brain-panel, .auto-panel, .diagnostics-panel, .rules-panel {
+    .controls, .arena, .stat-panel, .notes, .brain-panel, .auto-panel, .diagnostics-panel, .rules-panel {
       background: rgba(27, 33, 25, 0.95);
       border: 2px solid var(--line);
       box-shadow: 6px 6px 0 var(--shadow);
@@ -126,17 +127,93 @@
 
     .stats {
       display: grid;
-      gap: 10px;
+      gap: 12px;
+    }
+
+    .stat-panel {
+      padding: 12px;
+    }
+
+    .stats-heading {
+      margin-bottom: 9px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .ant-count-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .ant-count {
+      min-width: 0;
+      padding: 10px 8px;
+      background: var(--panel-soft);
+      border: 2px solid rgba(240, 234, 217, 0.12);
+    }
+
+    .ant-count span {
+      display: block;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .ant-count strong {
+      display: block;
+      margin-top: 5px;
+      font-size: 30px;
+      line-height: 1;
+    }
+
+    .ant-count.red strong {
+      color: var(--ant);
+    }
+
+    .ant-count.blue strong {
+      color: var(--blue);
+    }
+
+    .ant-count.green strong {
+      color: var(--green);
+    }
+
+    .detail-grid {
+      display: grid;
+      gap: 0;
     }
 
     .stat {
-      padding: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 10px;
+      min-width: 0;
+      padding: 7px 0;
+      border-top: 1px solid rgba(240, 234, 217, 0.1);
+    }
+
+    .stat:first-child {
+      border-top: 0;
+      padding-top: 0;
+    }
+
+    .stat:last-child {
+      padding-bottom: 0;
     }
 
     .stat span {
       display: block;
+      flex: 1 1 auto;
+      min-width: 0;
       color: var(--muted);
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 850;
       text-transform: uppercase;
       letter-spacing: 0.06em;
@@ -144,8 +221,14 @@
 
     .stat strong {
       display: block;
-      margin-top: 4px;
-      font-size: 24px;
+      flex: 0 0 auto;
+      max-width: 56%;
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.15;
+      text-align: right;
+      white-space: normal;
+      overflow-wrap: normal;
     }
 
     .notes {
@@ -326,25 +409,35 @@
       <div class="arena">
         <canvas id="board" width="720" height="720" aria-label="Ant colony forage simulation"></canvas>
       </div>
-      <aside class="stats">
-        <div class="stat"><span>Tick</span><strong id="tickCount">0</strong></div>
-        <div class="stat"><span>Red Food</span><strong id="redFoodDelivered">0</strong></div>
-        <div class="stat"><span>Blue Food</span><strong id="blueFoodDelivered">0</strong></div>
-        <div class="stat"><span>Green Food</span><strong id="greenFoodDelivered">0</strong></div>
-        <div class="stat"><span>Red Ants</span><strong id="redAntCount">6</strong></div>
-        <div class="stat"><span>Blue Ants</span><strong id="blueAntCount">6</strong></div>
-        <div class="stat"><span>Green Ants</span><strong id="greenAntCount">6</strong></div>
-        <div class="stat"><span>Food Left</span><strong id="foodLeft">0</strong></div>
-        <div class="stat"><span>Red Carrying</span><strong id="redCarryingCount">0</strong></div>
-        <div class="stat"><span>Blue Carrying</span><strong id="blueCarryingCount">0</strong></div>
-        <div class="stat"><span>Green Carrying</span><strong id="greenCarryingCount">0</strong></div>
-        <div class="stat"><span>Red Queen HP</span><strong id="redQueenHp">40</strong></div>
-        <div class="stat"><span>Blue Queen HP</span><strong id="blueQueenHp">40</strong></div>
-        <div class="stat"><span>Green Queen HP</span><strong id="greenQueenHp">40</strong></div>
-        <div class="stat"><span>Red Queen Status</span><strong id="redQueenStatus">Defended</strong></div>
-        <div class="stat"><span>Blue Queen Status</span><strong id="blueQueenStatus">Defended</strong></div>
-        <div class="stat"><span>Green Queen Status</span><strong id="greenQueenStatus">Defended</strong></div>
-        <div class="stat"><span>Status</span><strong id="gameStatus">Running</strong></div>
+      <aside class="stats" aria-label="Simulation stats">
+        <section class="stat-panel">
+          <div class="stats-heading">Ants</div>
+          <div class="ant-count-grid">
+            <div class="ant-count red"><span>Red</span><strong id="redAntCount">6</strong></div>
+            <div class="ant-count blue"><span>Blue</span><strong id="blueAntCount">6</strong></div>
+            <div class="ant-count green"><span>Green</span><strong id="greenAntCount">6</strong></div>
+          </div>
+        </section>
+        <section class="stat-panel">
+          <div class="stats-heading">Tracking</div>
+          <div class="detail-grid">
+            <div class="stat"><span>Tick</span><strong id="tickCount">0</strong></div>
+            <div class="stat"><span>Status</span><strong id="gameStatus">Running</strong></div>
+            <div class="stat"><span>Food Left</span><strong id="foodLeft">0</strong></div>
+            <div class="stat"><span>Red Food</span><strong id="redFoodDelivered">0</strong></div>
+            <div class="stat"><span>Blue Food</span><strong id="blueFoodDelivered">0</strong></div>
+            <div class="stat"><span>Green Food</span><strong id="greenFoodDelivered">0</strong></div>
+            <div class="stat"><span>Red Carrying</span><strong id="redCarryingCount">0</strong></div>
+            <div class="stat"><span>Blue Carrying</span><strong id="blueCarryingCount">0</strong></div>
+            <div class="stat"><span>Green Carrying</span><strong id="greenCarryingCount">0</strong></div>
+            <div class="stat"><span>Red Queen HP</span><strong id="redQueenHp">40</strong></div>
+            <div class="stat"><span>Blue Queen HP</span><strong id="blueQueenHp">40</strong></div>
+            <div class="stat"><span>Green Queen HP</span><strong id="greenQueenHp">40</strong></div>
+            <div class="stat"><span>Red Queen Status</span><strong id="redQueenStatus">Defended</strong></div>
+            <div class="stat"><span>Blue Queen Status</span><strong id="blueQueenStatus">Defended</strong></div>
+            <div class="stat"><span>Green Queen Status</span><strong id="greenQueenStatus">Defended</strong></div>
+          </div>
+        </section>
       </aside>
     </section>
 

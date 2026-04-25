@@ -686,15 +686,7 @@ LOOP</textarea>
         <div class="rule-stat"><span>FOOD TRAIL Lifetime</span><strong id="ruleFoodTrailLife">0 ticks</strong></div>
         <div class="rule-stat"><span>Base Return Slowdown</span><strong id="ruleReturnSlowdown">0x</strong></div>
         <div class="rule-stat"><span>Trail Delivery Speed Gain</span><strong id="ruleTrailSpeedGain">0%</strong></div>
-        <div class="rule-stat"><span>Trail Speed Bonus R / B / G</span><strong id="ruleTrailSpeedBonus">0% / 0% / 0%</strong></div>
         <div class="rule-stat"><span>Tick Duration</span><strong id="ruleTickDuration">0 ms</strong></div>
-        <div class="rule-stat"><span>Red Nest</span><strong id="ruleRedNest">0,0</strong></div>
-        <div class="rule-stat"><span>Blue Nest</span><strong id="ruleBlueNest">0,0</strong></div>
-        <div class="rule-stat"><span>Green Nest</span><strong id="ruleGreenNest">0,0</strong></div>
-        <div class="rule-stat"><span>Active Food Sources</span><strong id="ruleActiveFoodSources">0</strong></div>
-        <div class="rule-stat"><span>Depleted Sources</span><strong id="ruleDepletedFoodSources">0</strong></div>
-        <div class="rule-stat"><span>Next Hatch At</span><strong id="ruleNextHatchAt">0 food</strong></div>
-        <div class="rule-stat"><span>Total Ants</span><strong id="ruleTotalAnts">0</strong></div>
       </div>
     </section>
   </main>
@@ -812,15 +804,7 @@ LOOP</textarea>
     const ruleFoodTrailLife = document.querySelector('#ruleFoodTrailLife');
     const ruleReturnSlowdown = document.querySelector('#ruleReturnSlowdown');
     const ruleTrailSpeedGain = document.querySelector('#ruleTrailSpeedGain');
-    const ruleTrailSpeedBonus = document.querySelector('#ruleTrailSpeedBonus');
     const ruleTickDuration = document.querySelector('#ruleTickDuration');
-    const ruleRedNest = document.querySelector('#ruleRedNest');
-    const ruleBlueNest = document.querySelector('#ruleBlueNest');
-    const ruleGreenNest = document.querySelector('#ruleGreenNest');
-    const ruleActiveFoodSources = document.querySelector('#ruleActiveFoodSources');
-    const ruleDepletedFoodSources = document.querySelector('#ruleDepletedFoodSources');
-    const ruleNextHatchAt = document.querySelector('#ruleNextHatchAt');
-    const ruleTotalAnts = document.querySelector('#ruleTotalAnts');
     const copyReportBtn = document.querySelector('#copyReportBtn');
     const battleReport = document.querySelector('#battleReport');
     const reportStatus = document.querySelector('#reportStatus');
@@ -2594,8 +2578,6 @@ LOOP</textarea>
     }
 
     function updateRuleStats() {
-      const cells = state.cells.flat();
-      const activeFoodSources = cells.filter(cell => cell.food > 0).length;
       ruleGrid.textContent = `${GRID} x ${GRID}`;
       ruleStartAnts.textContent = START_ANTS;
       ruleFoodSources.textContent = FOOD_PILES;
@@ -2615,15 +2597,7 @@ LOOP</textarea>
       ruleFoodTrailLife.textContent = `${FOOD_TRAIL_MARK_TICKS} ticks`;
       ruleReturnSlowdown.textContent = `${RETURN_HOME_MOVE_INTERVAL}x`;
       ruleTrailSpeedGain.textContent = `${formatPercent(TRAIL_DELIVERY_SPEED_BONUS)} / trail delivery`;
-      ruleTrailSpeedBonus.textContent = `R ${formatPercent(teamMetrics('colony').trailSpeedBonus)} / B ${formatPercent(teamMetrics('enemy').trailSpeedBonus)} / G ${formatPercent(teamMetrics('green').trailSpeedBonus)}`;
       ruleTickDuration.textContent = `${TICK_MS} ms`;
-      ruleRedNest.textContent = pointLabel(state.queen);
-      ruleBlueNest.textContent = pointLabel(state.enemyNest);
-      ruleGreenNest.textContent = pointLabel(state.greenNest);
-      ruleActiveFoodSources.textContent = activeFoodSources;
-      ruleDepletedFoodSources.textContent = FOOD_PILES - activeFoodSources;
-      ruleNextHatchAt.textContent = `R ${state.nextRedHatchAt} / B ${state.nextBlueHatchAt} / G ${state.nextGreenHatchAt}`;
-      ruleTotalAnts.textContent = allAnts().length;
     }
 
     function pointLabel(point) {

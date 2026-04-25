@@ -2002,6 +2002,7 @@ LOOP</textarea>
     }
 
     function drawQueen(tile) {
+      if (state.queenHp <= 0) return;
       const x = state.queen.x * tile + tile / 2;
       const y = state.queen.y * tile + tile / 2;
       ctx.fillStyle = teamColor('colony');
@@ -2020,6 +2021,7 @@ LOOP</textarea>
     }
 
     function drawEnemyNest(tile) {
+      if (state.enemyNestHp <= 0) return;
       const x = state.enemyNest.x * tile + tile / 2;
       const y = state.enemyNest.y * tile + tile / 2;
       ctx.fillStyle = '#5e92df';
@@ -2038,6 +2040,7 @@ LOOP</textarea>
     }
 
     function drawGreenNest(tile) {
+      if (state.greenQueenHp <= 0) return;
       const x = state.greenNest.x * tile + tile / 2;
       const y = state.greenNest.y * tile + tile / 2;
       ctx.fillStyle = '#5bbf6a';
@@ -2392,7 +2395,7 @@ LOOP</textarea>
     }
 
     function isNestPoint(point) {
-      return allQueens().some(queen => samePoint(point, queen.point));
+      return livingQueens().some(queen => samePoint(point, queen.point));
     }
 
     function distance(a, b) {

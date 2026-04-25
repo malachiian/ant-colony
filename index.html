@@ -2444,6 +2444,7 @@ LOOP</textarea>
         `Outcome: ${outcome}`,
         `Queen: ${queenConditionSummary(team)}`,
         `Queen Damage Pattern: ${queenDamagePattern(metrics)}`,
+        `Queen Damage Timeline: ${queenDamageTimeline(metrics)}`,
         'KPIs:',
         `- Ants alive: ${diagnostics.ants}`,
         `- Ants lost: ${diagnostics.killed}`,
@@ -2520,6 +2521,17 @@ LOOP</textarea>
       }
       const ending = metrics.queenDeath ? `death followed ${span} ticks after first queen damage` : `queen survived through last damage at tick ${last.tick}`;
       return `${tempo}; ${total} total damage over ${events.length} damaged ticks; max ${maxTickDamage} in one tick; final-50-tick damage ${recentDamage}; average damaged tick ${averageDamageTick}; ${ending}.`;
+    }
+
+    function queenDamageTimeline(metrics) {
+      const events = metrics.queenDamageEvents;
+      if (!events.length) return 'none';
+      return events
+        .map(event => {
+          const attackers = teamCountsLabel(event.attackersByTeam);
+          return `\n- tick ${event.tick}: ${event.amount} damage, HP ${event.hpBefore}->${event.hpAfter}, attackers ${event.adjacentAttackers} (${attackers}), defenders ${event.defendersNear}, ants alive ${event.antsAlive}, carrying ${event.carrying}, status ${event.queenStatus}`;
+        })
+        .join('');
     }
 
     function defendersNearQueen(team) {

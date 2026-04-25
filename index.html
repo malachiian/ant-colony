@@ -701,6 +701,9 @@ LOOP</textarea>
     const QUEEN_BIRTH_INTERVAL = 1000;
     const QUEEN_DEFENSE_RADIUS = 5;
     const TICK_MS = 100;
+    const MAX_SIM_WORK_MS = 10;
+    const MAX_STEPS_PER_FRAME = 30;
+    const MAX_SIM_BACKLOG_TICKS = 30;
     const TEAMS = ['colony', 'enemy', 'green'];
     const DIRS = [
       {dx: 0, dy: -1},
@@ -808,6 +811,8 @@ LOOP</textarea>
     let redProgram = [];
     let blueProgram = [];
     let greenProgram = [];
+    let lastFrameTime = 0;
+    let simAccumulator = 0;
 
     function makeState() {
       const queen = {x: 4, y: 4};
@@ -969,19 +974,44 @@ LOOP</textarea>
     function run() {
       if (!compileBrains()) return;
       stop();
-      const speed = Number(speedSlider.value);
-      const interval = Math.max(20, TICK_MS / speed);
-      const stepsPerInterval = Math.max(1, Math.round(speed * interval / TICK_MS));
-      timer = setInterval(() => {
-        for (let i = 0; i < stepsPerInterval; i += 1) {
-          if (!step(i === stepsPerInterval - 1)) break;
-        }
-      }, interval);
+      lastFrameTime = performance.now();
+      simAccumulator = 0;
+      timer = requestAnimationFrame(runFrame);
     }
 
     function stop() {
-      if (timer) clearInterval(timer);
+      if (timer) cancelAnimationFrame(timer);
       timer = null;
+    }
+
+    function runFrame(now) {
+      if (!timer) return;
+      const speed = Number(speedSlider.value);
+      const elapsed = Math.min(250, now - lastFrameTime);
+      lastFrameTime = now;
+      simAccumulator += elapsed * speed;
+
+      const frameStart = performance.now();
+      let steps = 0;
+      let shouldRender = false;
+      while (
+        simAccumulator >= TICK_MS &&
+        steps < MAX_STEPS_PER_FRAME &&
+        performance.now() - frameStart < MAX_SIM_WORK_MS
+      ) {
+        simAccumulator -= TICK_MS;
+        steps += 1;
+        shouldRender = true;
+        if (!step(false)) break;
+      }
+
+      const maxBacklog = TICK_MS * MAX_SIM_BACKLOG_TICKS;
+      if (simAccumulator > maxBacklog) simAccumulator = maxBacklog;
+      if (shouldRender) {
+        draw();
+        updateStats();
+      }
+      if (timer) timer = requestAnimationFrame(runFrame);
     }
 
     function step(render = true) {

@@ -487,9 +487,6 @@
             <div class="stat"><span>Red Food</span><strong id="redFoodDelivered">0</strong></div>
             <div class="stat"><span>Blue Food</span><strong id="blueFoodDelivered">0</strong></div>
             <div class="stat"><span>Green Food</span><strong id="greenFoodDelivered">0</strong></div>
-            <div class="stat"><span>Red Carrying</span><strong id="redCarryingCount">0</strong></div>
-            <div class="stat"><span>Blue Carrying</span><strong id="blueCarryingCount">0</strong></div>
-            <div class="stat"><span>Green Carrying</span><strong id="greenCarryingCount">0</strong></div>
             <div class="stat"><span>Red Queen Status</span><strong id="redQueenStatus">Defended</strong></div>
             <div class="stat"><span>Blue Queen Status</span><strong id="blueQueenStatus">Defended</strong></div>
             <div class="stat"><span>Green Queen Status</span><strong id="greenQueenStatus">Defended</strong></div>
@@ -757,9 +754,6 @@ LOOP</textarea>
     const blueAntCount = document.querySelector('#blueAntCount');
     const greenAntCount = document.querySelector('#greenAntCount');
     const foodLeft = document.querySelector('#foodLeft');
-    const redCarryingCount = document.querySelector('#redCarryingCount');
-    const blueCarryingCount = document.querySelector('#blueCarryingCount');
-    const greenCarryingCount = document.querySelector('#greenCarryingCount');
     const redQueenHp = document.querySelector('#redQueenHp');
     const blueQueenHp = document.querySelector('#blueQueenHp');
     const greenQueenHp = document.querySelector('#greenQueenHp');
@@ -2324,9 +2318,6 @@ LOOP</textarea>
       redAntCount.textContent = state.ants.length;
       blueAntCount.textContent = state.enemyAnts.length;
       greenAntCount.textContent = state.greenAnts.length;
-      redCarryingCount.textContent = carryingForTeam('colony');
-      blueCarryingCount.textContent = carryingForTeam('enemy');
-      greenCarryingCount.textContent = carryingForTeam('green');
       foodLeft.textContent = totalFoodLeft();
       redQueenHp.textContent = state.queenHp;
       blueQueenHp.textContent = state.enemyNestHp;
